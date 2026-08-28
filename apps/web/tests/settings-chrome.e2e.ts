@@ -499,9 +499,17 @@ describe('web e2e: settings modal and General preferences', () => {
     expect(await page.evaluate(() => document.documentElement.lang)).toBe('zh-CN')
     // The Language selector pill shows the active locale's own name.
     const selector = zhDialog.getByRole('button', { name: '中文' })
-    expect(await selector.getAttribute('aria-haspopup')).toBe('menu')
-    await selector.click()
-    await page.getByRole('menuitem', { name: 'English' }).click()
+    await selector.focus()
+    await selector.press('Enter')
+    const localeMenu = page.getByRole('menu')
+    await localeMenu.waitFor({ timeout: 5_000 })
+    expect(await page.evaluate(() => ({
+      role: document.activeElement?.getAttribute('role'),
+      text: document.activeElement?.textContent?.trim(),
+    }))).toEqual({ role: 'menuitem', text: '中文' })
+    await page.keyboard.press('ArrowDown')
+    expect(await page.evaluate(() => document.activeElement?.textContent?.trim())).toBe('English')
+    await page.keyboard.press('Enter')
     // The settings-owned copy re-registers localized: dialog title, nav,
     // Appearance labels. (Only the settings namespaces are localized —
     // the rest of the app's copy is intentionally out of this row's scope.)
@@ -553,6 +561,68 @@ describe('web e2e: settings modal and General preferences', () => {
     await page.keyboard.press('Escape')
     expect(tripwire.pageErrors).toEqual([])
   }, 90_000)
+
+  it('keeps the settings panel readable on narrow viewports', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-settings-responsive'))
+    const trigger = page.getByRole('button', { name: '设置', exact: true })
+    const viewports = [
+      { width: 320, height: 568 },
+      { width: 375, height: 812 },
+      { width: 495, height: 913 },
+    ] as const
+
+    try {
+      for (const viewport of viewports) {
+        await page.setViewportSize(viewport)
+        await expect.poll(async () => await page.locator('[data-mobile="true"]').count(), { timeout: 5_000 })
+          .toBe(1)
+        const openSidebar = page.getByRole('button', { name: '打开侧边栏', exact: true })
+        if (await openSidebar.count() > 0) await openSidebar.click()
+        await trigger.waitFor({ state: 'visible', timeout: 5_000 })
+        await trigger.click({ force: true })
+        const dialog = page.getByRole('dialog', { name: '设置' })
+        await dialog.waitFor({ timeout: 10_000 })
+        const geometry = await dialog.evaluate((element) => {
+          const nav = element.querySelector('nav')
+          const navList = element.querySelector('[class*="navList"]')
+          const content = element.querySelector('[class*="content"]')
+          const options = element.querySelector('[class*="options"]')
+          if (nav === null || navList === null || content === null || options === null) {
+            throw new Error('settings panel layout nodes are missing')
+          }
+          const panelBox = element.getBoundingClientRect()
+          const navBox = nav.getBoundingClientRect()
+          const contentBox = content.getBoundingClientRect()
+          return {
+            panelWidth: panelBox.width,
+            navWidth: navBox.width,
+            navBottom: navBox.bottom,
+            contentTop: contentBox.top,
+            optionsScrollWidth: options.scrollWidth,
+            optionsClientWidth: options.clientWidth,
+            dialogScrollWidth: element.scrollWidth,
+            dialogClientWidth: element.clientWidth,
+            navListDirection: getComputedStyle(navList).flexDirection,
+          }
+        })
+        expect(geometry.panelWidth).toBeLessThanOrEqual(viewport.width)
+        expect(geometry.panelWidth).toBeGreaterThanOrEqual(viewport.width - 24)
+        expect(geometry.navWidth).toBeGreaterThanOrEqual(geometry.panelWidth - 2)
+        expect(geometry.navBottom).toBeLessThanOrEqual(geometry.contentTop + 1)
+        expect(geometry.optionsScrollWidth).toBeLessThanOrEqual(geometry.optionsClientWidth + 1)
+        expect(geometry.dialogScrollWidth).toBeLessThanOrEqual(geometry.dialogClientWidth + 1)
+        expect(geometry.navListDirection).toBe('row')
+
+        await page.keyboard.press('Escape')
+        expect(await dialog.count()).toBe(0)
+      }
+    } finally {
+      await page.setViewportSize({ width: 1680, height: 1000 })
+      const dialog = page.getByRole('dialog', { name: '设置' })
+      if (await dialog.count() > 0) await page.keyboard.press('Escape')
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1680)
+  }, 60_000)
 
   it('opens an English browser in English without any stored preference', async () => {
     // A fresh Host home has no locale preference, so its surface follows the

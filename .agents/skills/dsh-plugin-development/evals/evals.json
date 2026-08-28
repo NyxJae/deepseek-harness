@@ -1,0 +1,119 @@
+{
+  "skill": "dsh-plugin-development",
+  "cases": [
+    {
+      "id": "trigger-server-plugin",
+      "prompt": "帮我写一个 DSH 插件，监听 agent/pre-step，并安装到 web profile。",
+      "expected": "Use the skill, inspect the active profile and official references, implement a lifecycle-owned Host plugin, patch the profile, and run a real Loader smoke test.",
+      "assertions": ["reads dump-config", "declares inject only for required services", "uses ctx.on or ctx.effect", "verifies real profile boot"]
+    },
+    {
+      "id": "trigger-local-hmr",
+      "prompt": "我修改了本地 dsh 插件源码，为什么 web 没有热加载？",
+      "expected": "Use the skill to distinguish copied file installs, linked packages, server HMR, and client HMR.",
+      "assertions": ["checks resolved package path", "checks HMR state", "does not confuse client HMR with server HMR"]
+    },
+    {
+      "id": "trigger-bundle",
+      "prompt": "把这个插件做成可以 dsh plugin add 的 bundle。",
+      "expected": "Use the skill to separate dsh.bundle from dsh.profile and verify the composed patch layer.",
+      "assertions": ["adds dsh.bundle.patch", "keeps profile manifest distinct", "runs dump-config and boot verification"]
+    },
+    {
+      "id": "edge-forked-built-in-runtime-restart",
+      "prompt": "我已经在 C:\\Users\\HJ\\.dsh\\plugins\\deepseek-harness 里修改并提交了内置 Gateway 插件，profile dump 已经显示 fork，但当前 Gateway 可能还在跑旧进程，帮我确认是否生效。",
+      "expected": "Inspect the fork commit, profile dependency/link and dump-config, distinguish composition from the running process, request explicit restart authorization when HMR is unavailable, and verify the managed process after restart.",
+      "assertions": ["uses the fork checkout as the editable built-in source", "does not treat dump-config alone as runtime proof", "requires explicit restart authorization", "verifies the actual PID or command line"]
+    },
+    {
+      "id": "edge-deployment-copy-drift",
+      "prompt": "canonical plugin 已经修改，但 Gateway profile 里的部署副本可能还是旧版本，怎么确认？",
+      "expected": "Compare canonical source, profile dependency/link or deployment copy, composed config, and the active process path before changing files or restarting.",
+      "assertions": ["checks all source/profile/deployment/runtime planes", "reports path or hash evidence", "does not expose credentials"]
+    },
+    {
+      "id": "non-trigger-soul-file",
+      "prompt": "修改 SOUL.md，让下一次请求使用新灵魂。",
+      "expected": "Do not invoke plugin-development unless plugin code or composition is also being changed; use the existing SOUL watcher behavior.",
+      "assertions": ["does not redesign plugin lifecycle", "does not package a bundle"]
+    },
+    {
+      "id": "edge-unavailable-service",
+      "prompt": "插件加载后完全没反应，也没有报错。",
+      "expected": "Inspect the plugin fiber state and required service providers; diagnose PENDING before changing code.",
+      "assertions": ["checks inject dependencies", "checks provider composition", "mentions PENDING as a valid loader state"]
+    },
+    {
+      "id": "trigger-forked-replacement",
+      "prompt": "不要改 DSH 内置插件；我想 fork GitHub 上的 ui-conversation，在 $DSH_HOME/plugins 里改完后替换 Web profile 的内置行。",
+      "expected": "Keep the fork outside the checkout, preserve the built-in plugin's services, slots, client contracts, and lifecycle, disable the original row, enable one compatible fork, prove profile-local resolution, and retain an upstream merge path.",
+      "assertions": ["does not edit built-in source as the default", "checks same service and slot surfaces", "disables the original before enabling the fork", "verifies profile-local link resolution", "retains an upstream remote or merge path"]
+    },
+    {
+      "id": "edge-self-mounted-remote",
+      "prompt": "Client 插件自己 $mount 了 remote.foo，但点击时提示 cannot get property remote.foo without inject。",
+      "expected": "Keep inject on remote, await the mount, and read ctx.get('remote.foo') at invocation time; do not add the self-mounted namespace to inject.",
+      "assertions": ["diagnoses inject guard", "avoids self-dependency", "checks mount completion"]
+    },
+    {
+      "id": "trigger-external-typert-remote",
+      "prompt": "在 $DSH_HOME/plugins 做一个 Host/Client 双端插件，通过按钮调用自定义 Typert Remote。",
+      "expected": "Inspect generated ./typert and ./remote artifacts, dsh.client and profile rows, then verify the real bundle and Remote endpoint.",
+      "assertions": ["checks generated Remote artifacts", "checks client bundle and boot manifest", "separates mount, transport, and Host result failures"]
+    },
+    {
+      "id": "trigger-source-linked-built-in-edit",
+      "prompt": "全局 dsh 已经链接到本地 checkout，我改了内置 Host 插件，如何让 dsh web 使用新代码？",
+      "expected": "Keep the built-in bundle authoritative, build the changed lib artifacts or run a Host watcher, verify internal and external HMR roots, then use observed unload/re-apply or explicit restart authorization.",
+      "assertions": ["does not add a duplicate built-in profile link", "checks built artifact freshness", "checks internal and external HMR roots", "requires runtime reload evidence"]
+    },
+    {
+      "id": "edge-hmr-root-does-not-watch-checkout",
+      "prompt": "profile dump 显示 hmr enabled、root 是 ['.']，但修改 checkout 和 $DSH_HOME/plugins 的插件没有热更新，怎么诊断？",
+      "expected": "Resolve the HMR base directory, show that '.' is the profile base, add explicit internal and external roots, distinguish Host build output from Client dev-web, and inspect reload logs.",
+      "assertions": ["checks HMR base and resolved roots", "distinguishes Host and Client HMR", "does not treat enabled HMR as runtime proof", "checks reload logs"]
+    },
+    {
+      "id": "edge-source-profile-override",
+      "prompt": "源码版 DSH 的 profile 仍保留同名内置插件 link 和旧配置，Loader 出现重复注册或未知配置，如何修复？",
+      "expected": "Compare the shipped bundle with profile rows, remove duplicate built-in dependencies and stale configuration, retain only out-of-tree links, reinstall the profile, and run dump-config before boot.",
+      "assertions": ["checks bundle ownership", "removes duplicate built-in rows", "preserves external plugin links", "runs profile install and dump-config"]
+    },
+    {
+      "id": "edge-agent-turn-timeout-cleanup",
+      "prompt": "Host 插件里的 Agent turn 等待 120 秒后超时，代码删除 active turn 并释放 conversation queue，但 Agent 可能还在运行。怎么修？",
+      "expected": "Treat the wait threshold as distinct from Agent ownership, use an inactivity watchdog or explicit unlimited mode, retain queue/active state until matching turn completion or confirmed cancellation, and test a late assistant/end event through a real Loader seam.",
+      "assertions": ["separates wait timeout from turn ownership", "does not release queue on timer expiry", "checks late completion and quiescence", "uses real Loader evidence"]
+    },
+    {
+      "id": "edge-followup-dispose-quiescence",
+      "prompt": "Gateway dispose 时 followup promise 还没结束，但 AgentHandle 已经被 dispose 了，如何避免后台 Agent 继续跑？",
+      "expected": "Track the original followup promise with rejection handling, cancel or await it during disposal, remove listeners only after the owned work is settled, and dispose the AgentHandle after quiescence.",
+      "assertions": ["tracks original followup", "awaits or cancels before handle disposal", "preserves rejection handling", "tests disposal ordering"]
+    },
+    {
+      "id": "edge-turn-events-and-delivery-fences",
+      "prompt": "Session event 里有迟到的 assistant/message、重复 turn id、缺失 seq，以及 ClawChat ack failed/uncertain。请设计安全的 Agent turn 投递边界。",
+      "expected": "Require a safe sequence after the active start and the matching turn, fence stale generations, wait for a real turn/end before final delivery, and classify accepted/failed/uncertain without logging reply text or credentials.",
+      "assertions": ["validates event sequence and turn identity", "fences stale events and reused turn ids", "separates turn completion from delivery", "keeps diagnostics credential-safe"]
+    },
+    {
+      "id": "trigger-user-owned-preset-prompt",
+      "prompt": "UI 里显示的是创造模式/自定义模式，我想给当前 custom preset 的系统提示词增加发送本地图片的格式；仓库里也有同名 shipped preset，应该改哪个文件？",
+      "expected": "Resolve the selected preset's actual user-owned path from the roster or preset API, edit the user copy rather than the shipped preset, and verify the prompt in a newly created Session.",
+      "assertions": ["resolves the actual user-owned preset path", "does not edit a same-named shipped preset", "keeps existing Sessions unchanged", "verifies a new Session"]
+    },
+    {
+      "id": "edge-remote-web-fallback-resource",
+      "prompt": "本地 Markdown 图片在单元测试和 e2e 里通过，但我从 VPS/手机访问 Web 时只看到 alt 文本。怎么排查？",
+      "expected": "Separate Markdown parsing from runtime resource failure, inspect the actual profile config, Host RPC result, path authorization, built bundle, and running process, then verify the same non-loopback browser transport after reload or restart.",
+      "assertions": ["distinguishes markup from resolver or RPC failure", "checks runtime config and path authorization", "checks built artifact and running process", "verifies the real non-loopback transport"]
+    },
+    {
+      "id": "edge-privileged-access-mode",
+      "prompt": "VPS 中转的手机 Web 需要访问 settings、credentials、host.openPath 和 session.localImage，希望所有非回环限制同开同关，怎么改？",
+      "expected": "Use one explicit loopback/trusted-hosts mode for the complete privileged method set, test both modes, preserve the Host trust fence, and state that trustedHosts is reachability policy rather than authentication.",
+      "assertions": ["uses one explicit access mode", "tests default and trusted-host modes", "does not remove the base Host trust fence", "states trustedHosts is not authentication"]
+    }
+  ]
+}

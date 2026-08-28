@@ -1,11 +1,12 @@
 /**
- * Sidebar shell: column geometry only. Collapse is a slide plus crossfade:
- * content freezes at its expanded width (inline style) and fades out in place
- * while the sliding column (AppFrame grid tracks) clips it — nothing reflows
- * mid-slide. At settle the wide-only content unmounts and the four upper
- * controls enter the 56px rail from the same horizontal offset (one icon each,
- * same top-down order) on one fade that ends with the slide. The bottom-pinned
- * settings control only fades. The workspace/session browsing region between
+ * Sidebar shell: column geometry only. Desktop collapse is a slide plus
+ * crossfade: content freezes at its expanded width (inline style) and fades
+ * out in place while the AppFrame grid track clips it. At settle the wide-only
+ * content unmounts and the four upper controls enter the 56px rail from the
+ * same horizontal offset. On narrow frames, AppFrame gives the shell a
+ * zero-width overlay track; the shell keeps the browsing entry mounted, shows
+ * a branded trigger while closed, and renders the open state as a fixed drawer
+ * with a dismissible backdrop. The workspace/session browsing region between
  * the New Session button and the foot is the `sidebar.workspaces` registrant's,
  * and the foot holds `sidebar.settings` plus `sidebar.footer.action`; the shell
  * hands them the wide flag (plus an expand request callback for the browser).
@@ -15,7 +16,7 @@
  * scrollbar indirection away while it is elsewhere, so a list the user is not
  * pointing at carries no bar.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
   FishLogo, IconNewChatOutline16, IconPanelLeftOutline16, Tooltip,
@@ -52,6 +53,7 @@ function localBuildVersion(): string | undefined {
 export function SidebarRoot({
   collapsed,
   width,
+  mobile,
   startSession,
   toggleSidebar,
   t,
@@ -66,6 +68,19 @@ export function SidebarRoot({
     return () => { window.clearTimeout(timer) }
   }, [collapsed])
   const wide = !collapsed || !settled
+
+  // Escape closes only the mobile drawer; desktop keeps its existing toggle
+  // semantics and the backdrop supplies the pointer dismissal path.
+  useEffect(() => {
+    if (!mobile || collapsed) return
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      toggleSidebar()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => { document.removeEventListener('keydown', onKeyDown) }
+  }, [collapsed, mobile, toggleSidebar])
 
   // Freeze the content at its expanded width while it fades out (collapsed
   // && wide): the sliding column then clips it instead of reflowing it. The
@@ -122,101 +137,156 @@ export function SidebarRoot({
   }, [pointerInside])
 
   const buildVersion = localBuildVersion()
+  const mobileClosed = mobile && collapsed
+  const mobileTrigger = useRef<HTMLButtonElement>(null)
+  const wasMobile = useRef(mobile)
+  const mobileDrawerWasClosed = useRef(mobileClosed)
+
+  // An initial or responsive mobile-open state has no drawer opener, so it
+  // preserves the document's current focus. Only an explicit closed-to-open
+  // transition from the mobile trigger moves focus into the drawer.
+  useLayoutEffect(() => {
+    if (!mobile) {
+      wasMobile.current = false
+      return
+    }
+    if (!wasMobile.current) {
+      wasMobile.current = true
+      mobileDrawerWasClosed.current = mobileClosed
+      return
+    }
+    if (mobileClosed) {
+      if (!mobileDrawerWasClosed.current) mobileTrigger.current?.focus()
+      mobileDrawerWasClosed.current = true
+      return
+    }
+    if (mobileDrawerWasClosed.current) {
+      mobileDrawerWasClosed.current = false
+      column.current?.querySelector<HTMLButtonElement>('button:not([disabled])')?.focus()
+    }
+  }, [mobile, mobileClosed])
 
   return (
-    <div
-      ref={column}
-      className={clsx(
-        css.root, !wide && css.collapsed, !wide && everWide.current && css.railIn,
-        collapsed && wide && css.fading, !pointerInside && css.quietBars,
+    <>
+      {mobileClosed && (
+        <button
+          ref={mobileTrigger}
+          type="button"
+          className={css.mobileTrigger}
+          aria-label={t('toggle.open')}
+          onClick={() => { toggleSidebar() }}
+        >
+          <span aria-hidden="true">
+            {renderSlot('sidebar.brand.mark', { size: 24 }, { fallback: <FishLogo size={24} /> })}
+          </span>
+        </button>
       )}
-      style={wide ? { width: collapsed ? lastWideWidth.current : width } : undefined}
-      onPointerEnter={() => {
-        cancelLinger()
-        setPointerInside(true)
-      }}
-      onPointerLeave={() => { armLinger() }}
-    >
-      <div className={css.logoRow}>
-        {/* Expanded, the brand doubles as a New Session shortcut; the
-            collapsed rail's logo is the expand toggle below instead. */}
-        {wide && (
+      {mobile && !collapsed && (
+        <button
+          type="button"
+          className={css.mobileBackdrop}
+          aria-label={t('toggle.collapse')}
+          onClick={() => { toggleSidebar() }}
+        />
+      )}
+      <div
+        ref={column}
+        aria-hidden={mobileClosed || undefined}
+        className={clsx(
+          css.root, mobile && css.mobileRoot, mobileClosed && css.mobileClosed,
+          !wide && css.collapsed, !wide && everWide.current && css.railIn,
+          collapsed && wide && css.fading, !pointerInside && css.quietBars,
+        )}
+        style={mobileClosed
+          ? { width: 0 }
+          : wide ? { width: collapsed ? lastWideWidth.current : width } : undefined}
+        onPointerEnter={() => {
+          cancelLinger()
+          setPointerInside(true)
+        }}
+        onPointerLeave={() => { armLinger() }}
+      >
+        <div className={css.logoRow}>
+          {/* The brand row is the expanded sidebar's close control in both
+              desktop and mobile modes; New Session remains the separate row. */}
+          {wide && (
+            <button
+              type="button"
+              className={clsx(css.brand, css.wide)}
+              aria-label={t('toggle.collapse')}
+              onClick={() => { toggleSidebar() }}
+            >
+              <span className={css.brandIdentity} aria-hidden="true">
+                <span className={css.brandMark}>
+                  {renderSlot('sidebar.brand.mark', { size: 24 }, { fallback: <FishLogo size={24} /> })}
+                </span>
+                <span className={css.brandName}>
+                  {renderSlot('sidebar.brand.name', {}, {
+                    fallback: buildVersion === undefined
+                      ? <span className={css.fallbackBrandName}>{t('brand.localBuild')}</span>
+                      : (
+                        <span className={css.localBuildBrand}>
+                          <span className={css.localBuildTitle}>{t('brand.localBuild')}</span>
+                          <span className={css.buildVersion}>{buildVersion}</span>
+                        </span>
+                      ),
+                  })}
+                </span>
+              </span>
+            </button>
+          )}
+          {/* Rail resting state is the whale mark; hovering swaps in the panel
+              icon (the expand affordance, figma sidebar-hover flow). */}
+          <Tooltip label={collapsed ? t('toggle.open') : t('toggle.collapse')} delayMs={500}>
+            <button
+              type="button"
+              className={clsx(css.iconButton, css.toggle)}
+              aria-label={collapsed ? t('toggle.open') : t('toggle.collapse')}
+              onClick={() => { toggleSidebar() }}
+            >
+              {!wide && (
+                <span className={css.railMark} aria-hidden="true">
+                  {renderSlot('sidebar.brand.mark', { size: 24 }, { fallback: <FishLogo size={24} /> })}
+                </span>
+              )}
+              {/* Rail icons render at 18 (figma rail spec); expanded keeps the glyph-native sizes. */}
+              <IconPanelLeftOutline16 className={css.panelIcon} size={wide ? 16 : 18} />
+            </button>
+          </Tooltip>
+        </div>
+
+        {/* Expanded, the button carries its own label — tooltip only on the rail. */}
+        <Tooltip label={t('session.new.label')} delayMs={500} disabled={wide}>
           <button
             type="button"
-            className={clsx(css.brand, css.wide)}
+            className={css.newSession}
             aria-label={t('session.new.label')}
             onClick={() => { startSession() }}
           >
-            <span className={css.brandIdentity} aria-hidden="true">
-              <span className={css.brandMark}>
-                {renderSlot('sidebar.brand.mark', { size: 24 }, { fallback: <FishLogo size={24} /> })}
-              </span>
-              <span className={css.brandName}>
-                {renderSlot('sidebar.brand.name', {}, {
-                  fallback: buildVersion === undefined
-                    ? <span className={css.fallbackBrandName}>{t('brand.localBuild')}</span>
-                    : (
-                      <span className={css.localBuildBrand}>
-                        <span className={css.localBuildTitle}>{t('brand.localBuild')}</span>
-                        <span className={css.buildVersion}>{buildVersion}</span>
-                      </span>
-                    ),
-                })}
-              </span>
-            </span>
-          </button>
-        )}
-        {/* Rail resting state is the whale mark; hovering swaps in the panel
-            icon (the expand affordance, figma sidebar-hover flow). */}
-        <Tooltip label={collapsed ? t('toggle.open') : t('toggle.collapse')} delayMs={500}>
-          <button
-            type="button"
-            className={clsx(css.iconButton, css.toggle)}
-            aria-label={collapsed ? t('toggle.open') : t('toggle.collapse')}
-            onClick={() => { toggleSidebar() }}
-          >
-            {!wide && (
-              <span className={css.railMark} aria-hidden="true">
-                {renderSlot('sidebar.brand.mark', { size: 24 }, { fallback: <FishLogo size={24} /> })}
-              </span>
-            )}
-            {/* Rail icons render at 18 (figma rail spec); expanded keeps the glyph-native sizes. */}
-            <IconPanelLeftOutline16 className={css.panelIcon} size={wide ? 16 : 18} />
+            <IconNewChatOutline16 size={wide ? 14 : 18} />
+            {wide && <span className={clsx(css.newSessionLabel, css.wide)}>{t('session.new')}</span>}
           </button>
         </Tooltip>
-      </div>
 
-      {/* Expanded, the button carries its own label — tooltip only on the rail. */}
-      <Tooltip label={t('session.new.label')} delayMs={500} disabled={wide}>
-        <button
-          type="button"
-          className={css.newSession}
-          aria-label={t('session.new.label')}
-          onClick={() => { startSession() }}
-        >
-          <IconNewChatOutline16 size={wide ? 14 : 18} />
-          {wide && <span className={clsx(css.newSessionLabel, css.wide)}>{t('session.new')}</span>}
-        </button>
-      </Tooltip>
-
-      {/* The browsing region fills the column between the controls and the
-          foot in both states; its rail icon column rides the same slot. */}
-      <div className={css.regionArea}>
-        {renderSlot('sidebar.workspaces', {
-          wide,
-          expandSidebar: () => { if (collapsed) toggleSidebar() },
-        })}
-      </div>
-
-      {/* Footer actions stack above Settings in both sidebar widths. */}
-      <div className={css.footArea}>
-        <div className={css.footerActions}>
-          {renderSlot('sidebar.footer.action', { wide })}
+        {/* The browsing region fills the column between the controls and the
+            foot in both states; its rail icon column rides the same slot. */}
+        <div className={css.regionArea}>
+          {renderSlot('sidebar.workspaces', {
+            wide,
+            expandSidebar: () => { if (collapsed) toggleSidebar() },
+          })}
         </div>
-        <div className={css.settingsArea}>
-          {renderSlot('sidebar.settings', { wide })}
+
+        {/* Footer actions stack above Settings in both sidebar widths. */}
+        <div className={css.footArea}>
+          <div className={css.footerActions}>
+            {renderSlot('sidebar.footer.action', { wide })}
+          </div>
+          <div className={css.settingsArea}>
+            {renderSlot('sidebar.settings', { wide })}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

@@ -66,9 +66,9 @@
 }
 
 .menu {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 8px);
+  position: fixed;
+  right: auto;
+  bottom: auto;
   z-index: 20;
   display: flex;
   flex-direction: column;

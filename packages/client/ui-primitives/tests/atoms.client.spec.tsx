@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Button, ConnectionBanner, Input, Menu, Modal, Pill } from '@deepseek-ai/dsh-client-ui-primitives'
 import { POINTER_GRACE_MS } from '../src/pointer-grace.ts'
@@ -87,6 +87,42 @@ describe('Menu', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
     fireEvent.pointerDown(document.body)
     expect(onClose).toHaveBeenCalledTimes(2)
+  })
+
+  it('focuses the selected item and supports keyboard navigation', async () => {
+    const onClose = vi.fn()
+    const props = {
+      anchor: <button type="button">Trigger</button>,
+      items: [
+        { id: 'a', label: 'Alpha' },
+        { id: 'b', label: 'Beta', disabled: true },
+        { id: 'c', label: 'Gamma' },
+      ],
+      selectedId: 'a',
+      onSelect: vi.fn(),
+      onClose,
+    }
+    const { rerender } = render(<Menu {...props} open={false} />)
+    const trigger = screen.getByRole('button', { name: 'Trigger' })
+    trigger.focus()
+    rerender(<Menu {...props} open />)
+    const alpha = screen.getByRole('menuitem', { name: 'Alpha' })
+    const gamma = screen.getByRole('menuitem', { name: 'Gamma' })
+    await waitFor(() => { expect(document.activeElement).toBe(alpha) })
+
+    fireEvent.keyDown(alpha, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(gamma)
+    fireEvent.keyDown(gamma, { key: 'ArrowUp' })
+    expect(document.activeElement).toBe(alpha)
+    fireEvent.keyDown(alpha, { key: 'End' })
+    expect(document.activeElement).toBe(gamma)
+    fireEvent.keyDown(gamma, { key: 'Home' })
+    expect(document.activeElement).toBe(alpha)
+    fireEvent.keyDown(alpha, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+
+    rerender(<Menu {...props} open={false} />)
+    await waitFor(() => { expect(document.activeElement).toBe(trigger) })
   })
 
   it('inside pointerdown does not close', () => {

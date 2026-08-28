@@ -27,6 +27,13 @@ describe('computeColumns', () => {
       .toEqual({ sidebar: SIDEBAR_COLLAPSED, center: 1920 - SIDEBAR_COLLAPSED, details: 0 })
   })
 
+  it('mobile overlay mode removes the sidebar from the grid solve', () => {
+    expect(computeColumns(375, open(SIDEBAR_DEFAULT), closed(DETAILS_DEFAULT), { sidebarOverlay: true }))
+      .toEqual({ sidebar: 0, center: 375, details: 0 })
+    expect(computeColumns(980, open(SIDEBAR_DEFAULT), open(DETAILS_DEFAULT), { sidebarOverlay: true }))
+      .toEqual({ sidebar: 0, center: CENTER_MIN, details: 340 })
+  })
+
   it('preferences beyond the clamp range are clamped before solving', () => {
     const cols = computeColumns(1920, open(9999), open(1))
     expect(cols.sidebar).toBe(420)

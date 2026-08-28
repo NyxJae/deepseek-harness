@@ -29,6 +29,19 @@
   border-right: 1px solid var(--dsw-alias-border-l1);
 }
 
+/* A mobile SidebarRoot is fixed above the frame. Keep the zero-width grid
+   column transparent and let only fixed descendants receive pointer input. */
+.frame[data-mobile] .sidebarCol {
+  overflow: visible;
+  background: transparent;
+  border-right: none;
+  pointer-events: none;
+}
+
+.frame[data-mobile] .sidebarCol > * {
+  pointer-events: auto;
+}
+
 .centerCol {
   min-width: 0;
   display: flex;
@@ -43,7 +56,8 @@
 }
 
 /* The details subtree stays mounted at zero width, so its border must not paint
-   a 1px seam. The collapsed sidebar instead retains a bordered compact rail. */
+   a 1px seam. Desktop closed sidebars retain their bordered compact rail;
+   narrow overlay sidebars consume no track or border. */
 .frame[data-details-collapsed] .detailsCol {
   border-left: none;
 }

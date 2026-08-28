@@ -12,7 +12,7 @@
  * card; the in-menu strip with Retry remains the catalog-load surface.
  */
 import {
-  useEffect, useId, useMemo, useRef, useState, useSyncExternalStore,
+  useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore,
   type KeyboardEvent, type FocusEvent,
 } from 'react'
 import clsx from 'clsx'
@@ -60,7 +60,9 @@ export function ModelSelect(
   const toastSeq = useRef(0)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null)
   const id = useId()
 
   const choices = useMemo(() => state.groups.flatMap(group =>
@@ -113,6 +115,40 @@ export function ModelSelect(
     document.addEventListener('mousedown', closeOutside)
     return () => { document.removeEventListener('mousedown', closeOutside) }
   }, [open])
+
+  // The composer can place this control far from the viewport's right edge on
+  // narrow screens. Fixed positioning plus the measured anchor/menu rectangles
+  // keeps both menu edges inside the viewport and follows scroll/resize changes.
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuPosition(null)
+      return
+    }
+    const updatePosition = (): void => {
+      const anchor = triggerRef.current
+      const menu = menuRef.current
+      if (anchor === null || menu === null) return
+      const anchorRect = anchor.getBoundingClientRect()
+      const menuRect = menu.getBoundingClientRect()
+      const margin = 12
+      const gap = 8
+      const maxLeft = Math.max(margin, window.innerWidth - margin - menuRect.width)
+      const left = Math.min(maxLeft, Math.max(margin, anchorRect.right - menuRect.width))
+      const above = anchorRect.top - gap - menuRect.height
+      const maxTop = Math.max(margin, window.innerHeight - margin - menuRect.height)
+      const top = above >= margin
+        ? above
+        : Math.min(maxTop, anchorRect.bottom + gap)
+      setMenuPosition({ left, top })
+    }
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    document.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      document.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [choices.length, effortChoices.length, open, pane, state.error, state.failures, state.groups, state.status])
 
   if (!available) return null
 
@@ -239,11 +275,15 @@ export function ModelSelect(
 
       {open && (
         <div
+          ref={menuRef}
           id={`${id}-menu`}
           className={css.menu}
           role="menu"
           aria-label={t('menu.aria')}
           aria-busy={state.status === 'loading' || busy}
+          style={menuPosition === null
+            ? { visibility: 'hidden' }
+            : { left: menuPosition.left, top: menuPosition.top }}
         >
           {pane === 'root' && (
             <>

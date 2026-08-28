@@ -164,6 +164,33 @@ describe('SettingsPanel close paths', () => {
     openPanel()
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close' }))
   })
+  it('keeps Tab focus inside the dialog and restores the trigger on close', () => {
+    mount()
+    const trigger = screen.getByRole('button', { name: 'Settings' })
+    trigger.focus()
+    openPanel()
+    const dialog = screen.getByRole('dialog')
+    const focusables = [...dialog.querySelectorAll<HTMLButtonElement>('button')]
+    const first = focusables[0]
+    const last = focusables.at(-1)
+    if (first === undefined || last === undefined) throw new Error('dialog has no focusable controls')
+
+    first.focus()
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true })
+    expect(document.activeElement).toBe(last)
+    fireEvent.keyDown(document, { key: 'Tab' })
+    expect(document.activeElement).toBe(first)
+
+    const outside = document.createElement('button')
+    document.body.append(outside)
+    outside.focus()
+    fireEvent.keyDown(document, { key: 'Tab' })
+    expect(document.activeElement).toBe(first)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(document.activeElement).toBe(trigger)
+    outside.remove()
+  })
 })
 
 describe('SettingsPanel navigation', () => {

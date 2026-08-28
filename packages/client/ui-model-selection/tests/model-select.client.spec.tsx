@@ -88,6 +88,49 @@ describe('ModelSelect reasoning effort', () => {
     })
   })
 
+  it('keeps the menu inside a narrow viewport when the composer trigger is offset right', async () => {
+    const originalWidth = window.innerWidth
+    const originalHeight = window.innerHeight
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 320 })
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 568 })
+    const rect = (left: number, top: number, width: number, height: number): DOMRect => ({
+      x: left,
+      y: top,
+      left,
+      top,
+      right: left + width,
+      bottom: top + height,
+      width,
+      height,
+      toJSON: () => ({}),
+    })
+    const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.getAttribute('role') === 'menu') return rect(0, 0, 250, 90)
+      if (this.getAttribute('aria-haspopup') === 'menu') return rect(83, 498, 118, 28)
+      return rect(0, 0, 0, 0)
+    })
+    try {
+      const directory = createSnapshotStore<ModelDirectoryState>(state())
+      render(<ModelSelect
+        locked={false}
+        available
+        directory={directory}
+        load={vi.fn()}
+        select={vi.fn().mockResolvedValue(true)}
+        t={t}
+      />)
+      fireEvent.click(screen.getByRole('button', { name: /选择模型/ }))
+      const menu = screen.getByRole('menu')
+      await waitFor(() => { expect(menu.style.left).toBe('12px') })
+      expect(menu.style.top).toBe('400px')
+      expect(12 + 250).toBeLessThanOrEqual(window.innerWidth - 12)
+    } finally {
+      rectSpy.mockRestore()
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalWidth })
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: originalHeight })
+    }
+  })
+
   it('offers provider default only when the adapter does not configure a model default', () => {
     const directory = createSnapshotStore(state({
       groups: [{

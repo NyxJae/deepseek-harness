@@ -462,3 +462,37 @@
   opacity: 0.4;
   cursor: default;
 }
+
+@media (max-width: 640px) {
+  .cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cardHead {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .cardName {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .inUse {
+    margin-left: 0;
+  }
+
+  .cardFoot {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .iconButton::after {
+    transition: none;
+  }
+}

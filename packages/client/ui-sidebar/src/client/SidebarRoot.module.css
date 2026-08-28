@@ -345,6 +345,68 @@
   width: auto;
 }
 
+/* Narrow frames keep the sidebar outside the grid. The trigger is the only
+   visible control while closed; the open shell is a fixed drawer above the
+   conversation and the backdrop owns outside-click dismissal. */
+.mobileTrigger {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top));
+  left: max(8px, env(safe-area-inset-left));
+  z-index: 31;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  box-sizing: border-box;
+  padding: 0;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 12px;
+  background: var(--dsw-specific-sidebar-fill);
+  box-shadow: var(--dsw-shadow-lv2);
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.mobileTrigger:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.mobileBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: var(--dsw-alias-bg-mask-1);
+  cursor: default;
+}
+
+.mobileRoot {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 31;
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+  padding-top: max(6px, env(safe-area-inset-top));
+  padding-bottom: max(6px, env(safe-area-inset-bottom));
+  border-right: 1px solid var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-shadow-lv3);
+  overflow: hidden;
+}
+
+.mobileClosed {
+  width: 0 !important;
+  visibility: hidden;
+  pointer-events: none;
+  border-right: none;
+  box-shadow: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .wide,
   .fading > *,

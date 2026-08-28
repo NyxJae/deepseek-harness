@@ -72,4 +72,14 @@ describe('SidebarRoot.module.css', () => {
     expect(declarations('.fallbackBrandName')?.get('font-size')).toBe('17px')
     expect(declarations('.fallbackBrandName')?.get('white-space')).toBe('nowrap')
   })
+
+  it('gives mobile the full-size trigger and fixed drawer layering', () => {
+    expect(declarations('.mobileTrigger')?.get('width')).toBe('44px')
+    expect(declarations('.mobileTrigger')?.get('height')).toBe('44px')
+    expect(declarations('.mobileRoot')?.get('position')).toBe('fixed')
+    expect(declarations('.mobileRoot')?.get('max-width')).toBe('calc(100vw - 24px)')
+    expect(declarations('.mobileBackdrop')?.get('position')).toBe('fixed')
+    expect(declarations('.mobileClosed')?.get('width')).toBe('0 !important')
+    expect(declarations('.mobileClosed')?.get('visibility')).toBe('hidden')
+  })
 })

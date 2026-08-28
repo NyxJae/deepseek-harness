@@ -3,18 +3,24 @@
  * Chain order is fixed by contract: keep center >= CENTER_MIN by shrinking
  * details, then auto-closing it (derived zero width — preferred width
  * preferences are never rewritten, so widening the window restores them).
- * The sidebar never concedes: its rendered width is always the drag
- * preference (or the collapsed rail), and center absorbs any remaining
- * deficit as the last resort. Inputs are the layout store's plain width
- * preferences (0 = closed); a closed sidebar resolves to the fixed
- * SIDEBAR_COLLAPSED control rail while closed details resolve to zero width.
- * The SIDEBAR_AUTO_COLLAPSE breakpoint is consumed by AppFrame, which decides
- * the effective sidebar preference before solving; the solver itself stays
- * breakpoint-free.
+ * The sidebar never concedes in the ordinary three-column mode: its rendered
+ * width is always the drag preference (or the collapsed rail), and center
+ * absorbs any remaining deficit as the last resort. Mobile overlay mode is the
+ * exception: the sidebar consumes no grid track and AppFrame renders it above
+ * the center column. Inputs are the layout store's plain width preferences
+ * (0 = closed); closed details resolve to zero width. The
+ * SIDEBAR_AUTO_COLLAPSE breakpoint is consumed by AppFrame, which selects the
+ * overlay mode; the solver itself stays breakpoint-free.
  */
 
 /** Resolved widths for one frame; center may drop below CENTER_MIN only at the final fallback. */
 export interface Columns { sidebar: number; center: number; details: number }
+
+/** Options that change how panel preferences participate in the grid solve. */
+export interface ComputeColumnsOptions {
+  /** Render the sidebar outside the grid so it consumes no center-column width. */
+  sidebarOverlay?: boolean
+}
 
 // Contract-frozen geometry: the three-column concession chain's fixed points.
 /** Center column floor; only the final fallback may go below it. */
@@ -57,11 +63,20 @@ export function clampWidth(px: number, min: number, max: number): number {
  * @param viewport - available frame width in px.
  * @param sidebar - sidebar width preference in px (0 = closed).
  * @param details - details width preference in px (0 = closed).
- * @returns resolved widths; details 0 means visually closed (never unmounted), while a closed sidebar keeps its compact rail.
+ * @param options - whether the sidebar is rendered as an overlay outside the grid.
+ * @returns resolved widths; details 0 means visually closed (never unmounted), while an overlay sidebar consumes zero grid width.
  */
-export function computeColumns(viewport: number, sidebar: number, details: number): Columns {
-  // The sidebar is fixed at its preference (or the rail) — it never concedes.
-  const s = sidebar === 0 ? SIDEBAR_COLLAPSED : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
+export function computeColumns(
+  viewport: number,
+  sidebar: number,
+  details: number,
+  options: ComputeColumnsOptions = {},
+): Columns {
+  // An overlay sidebar does not reduce the center track; ordinary closed
+  // sidebars retain the fixed rail width.
+  const s = options.sidebarOverlay
+    ? 0
+    : sidebar === 0 ? SIDEBAR_COLLAPSED : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
   const d0 = details === 0 ? 0 : clampWidth(details, DETAILS_MIN, DETAILS_MAX)
 
   // Step 1: everything fits at preferred widths.

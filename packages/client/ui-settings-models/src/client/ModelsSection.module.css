@@ -64,17 +64,26 @@
 .rowHead {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
+  min-width: 0;
 }
 
 .rowIdentity {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
 }
 
 .rowName {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 14px;
   line-height: 22px;
   font-weight: 500;
@@ -116,6 +125,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  flex: 0 0 auto;
   margin-left: auto;
 }
 
@@ -137,6 +147,7 @@
   font: inherit;
   font-size: 14px;
   line-height: 22px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -179,6 +190,7 @@
   font: inherit;
   font-size: 14px;
   line-height: 22px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -277,6 +289,7 @@
   font: inherit;
   font-size: 12px;
   line-height: 18px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -446,6 +459,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
@@ -624,8 +638,10 @@ select.input {
 
 @media (prefers-reduced-motion: reduce) {
   .customizedSummary::before,
-  .switchThumb {
-    transition: none;
+  .switchThumb,
+  .iconButton svg {
+    transition: none !important;
+
   }
 }
 
@@ -674,4 +690,95 @@ select.input {
   font-family: var(--ds-font-family-code);
   font-size: 13px;
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .section,
+  .rowCard,
+  .rowHead,
+  .rowIdentity,
+  .editor,
+  .editorHeader,
+  .modelCatalog,
+  .modelListHead,
+  .modelCatalogHeading,
+  .modelList,
+  .modelEntry,
+  .modelRow,
+  .modelAdvanced,
+  .modelField {
+    min-width: 0;
+  }
+
+  .modelListHead {
+    gap: 8px;
+  }
+
+  .modelCatalogHeading {
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .modelCatalogTitle,
+  .modelCatalogMeta,
+  .editorTitle,
+  .editorRoute {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .modelRow {
+    grid-template-columns: minmax(0, 1fr) 28px 28px;
+    gap: 6px;
+  }
+
+  .modelRow > .input:nth-child(1),
+  .modelRow > .input:nth-child(2) {
+    grid-column: 1 / -1;
+  }
+
+  .modelRow > .input:nth-child(1) {
+    grid-row: 1;
+  }
+
+  .modelRow > .input:nth-child(2) {
+    grid-row: 2;
+  }
+
+  .modelRow > .iconButton:nth-child(3) {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .modelRow > .iconButton:nth-child(4) {
+    grid-column: 3;
+    grid-row: 3;
+  }
+
+  .input {
+    min-width: 0;
+  }
+
+  .modelAdvanced {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .addActions {
+    flex-direction: column;
+  }
+
+  .addButton {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .editorActions {
+    flex-wrap: wrap;
+  }
+
+  .editorActions > button {
+    flex: 1 1 120px;
+  }
 }

@@ -115,6 +115,82 @@ describe('web e2e: Models settings page configures a dormant provider', () => {
     expect(document).toContain('minimax-cn: {}')
     expect(document).not.toContain('MINIMAX_CN_API_KEY')
   }, 60_000)
+  it('keeps provider actions within the model row on narrow viewports', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-models-responsive'))
+    const viewports = [
+      { width: 320, height: 568 },
+      { width: 375, height: 812 },
+      { width: 495, height: 913 },
+    ] as const
+    const dialog = page.getByRole('dialog', { name: '设置' })
+
+    await page.keyboard.press('Escape')
+
+    try {
+      for (const viewport of viewports) {
+        await page.setViewportSize(viewport)
+        await expect.poll(async () => await page.locator('[data-mobile="true"]').count(), { timeout: 5_000 })
+          .toBe(1)
+        const openSidebar = page.getByRole('button', { name: '打开侧边栏', exact: true })
+        if (await openSidebar.count() > 0) await openSidebar.click()
+        const trigger = page.getByRole('button', { name: '设置', exact: true })
+        await trigger.waitFor({ state: 'visible', timeout: 5_000 })
+        await trigger.click({ force: true })
+        await dialog.waitFor({ timeout: 10_000 })
+        await dialog.getByRole('button', { name: '模型', exact: true }).click()
+        await expect.poll(async () => await dialog.locator('button[aria-label^="编辑"]').count(), { timeout: 10_000 })
+          .toBe(1)
+        const metrics = await dialog.evaluate((element) => {
+          const edit = element.querySelector('button[aria-label^="编辑"]')
+          const remove = element.querySelector('button[aria-label^="删除"]')
+          const row = edit?.closest('li')
+          if (!(edit instanceof HTMLElement) || !(remove instanceof HTMLElement) || !(row instanceof HTMLElement)) {
+            throw new Error('provider row is missing its actions')
+          }
+          const rowBox = row.getBoundingClientRect()
+          const editBox = edit.getBoundingClientRect()
+          const removeBox = remove.getBoundingClientRect()
+          return {
+            rowLeft: rowBox.left,
+            rowRight: rowBox.right,
+            rowScrollWidth: row.scrollWidth,
+            rowClientWidth: row.clientWidth,
+            editLeft: editBox.left,
+            editRight: editBox.right,
+            removeLeft: removeBox.left,
+            removeRight: removeBox.right,
+            editWhiteSpace: getComputedStyle(edit).whiteSpace,
+            removeWhiteSpace: getComputedStyle(remove).whiteSpace,
+          }
+        })
+        expect(metrics.rowScrollWidth).toBeLessThanOrEqual(metrics.rowClientWidth + 1)
+        expect(metrics.editLeft).toBeGreaterThanOrEqual(metrics.rowLeft - 1)
+        expect(metrics.editRight).toBeLessThanOrEqual(metrics.rowRight + 1)
+        expect(metrics.removeLeft).toBeGreaterThanOrEqual(metrics.rowLeft - 1)
+        expect(metrics.removeRight).toBeLessThanOrEqual(metrics.rowRight + 1)
+        expect(metrics.editWhiteSpace).toBe('nowrap')
+        expect(metrics.removeWhiteSpace).toBe('nowrap')
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width)
+        await page.keyboard.press('Escape')
+        await expect.poll(async () => await dialog.count(), { timeout: 10_000 }).toBe(0)
+      }
+    } finally {
+      await page.setViewportSize({ width: 1680, height: 1000 })
+      if (await dialog.count() > 0) {
+        await page.keyboard.press('Escape')
+        await expect.poll(async () => await dialog.count(), { timeout: 10_000 }).toBe(0)
+      }
+      await expect.poll(async () => await page.locator('[data-mobile="true"]').count(), { timeout: 5_000 })
+        .toBe(0)
+      const trigger = page.getByRole('button', { name: '设置', exact: true })
+      await trigger.waitFor({ state: 'visible', timeout: 10_000 })
+      await trigger.click()
+      const restored = page.getByRole('dialog', { name: '设置' })
+      await restored.waitFor({ timeout: 10_000 })
+      await restored.getByRole('button', { name: '模型', exact: true }).click()
+      await restored.getByRole('button', { name: /^编辑/ }).waitFor({ timeout: 10_000 })
+    }
+  }, 60_000)
 
   it('describes reference-free deletion without claiming a credential exists', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-models-native-delete'))

@@ -24,12 +24,16 @@
   display: flex;
   align-items: flex-end;
   gap: 22px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
   border-bottom: 1px solid var(--dsw-alias-border-l2);
   margin-top: 2px;
 }
 
 .tab {
   position: relative;
+  flex: 0 0 auto;
   border: 0;
   padding: 7px 1px 9px;
   background: transparent;
@@ -37,6 +41,7 @@
   font: inherit;
   font-size: 13px;
   line-height: 20px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -82,4 +87,14 @@
   margin: 0;
   font-size: 13px;
   color: var(--dsw-alias-label-tertiary);
+}
+
+@media (max-width: 640px) {
+  .tabs {
+    gap: 16px;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
 }

@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-08-26-settings-modal-keyboard-focus.md
+2026-08-26-settings-modal-keyboard-focus.md: fd92ba4bbe44c98bed1e2426f393741d29059166
+2026-08-26-settings-modal-keyboard-focus.zh.md: e6602aebca2c2f1ad5f276d4c0d922e1e23faf3c

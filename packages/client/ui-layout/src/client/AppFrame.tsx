@@ -1,12 +1,13 @@
 /**
  * Three-column shell frame, registered into the built-in 'root' slot (the web
  * shell renders only 'root'). Owns the grid tracks (sidebar | center |
- * details), the drag handles (pointer capture + rAF throttle), the concession
- * chain (columns.ts), and the child-slot render decisions: the sidebar slot
- * renders HERE with live parameters from the concession solve, and the
- * session-aware occupants render in fixed column positions; strict entries
- * gate themselves on current-session availability while session-maybe
- * entries retain identity. Pure component: everything arrives
+ * details), the mobile sidebar overlay mode, the drag handles (pointer capture
+ * + rAF throttle), the concession chain (columns.ts), and the child-slot
+ * render decisions. The sidebar slot renders here with live column state; on a
+ * narrow frame its owner receives a zero-width overlay track and the drawer's
+ * preferred width. Session-aware occupants render in fixed column positions;
+ * strict entries gate themselves on current-session availability while
+ * session-maybe entries retain identity. Pure component: everything arrives
  * through the three framework shares — zero cordis or framework imports,
  * zero self-made hooks.
  */
@@ -139,17 +140,21 @@ export function AppFrame({
 
   // Narrow viewports auto-collapse the sidebar; the store mirror keeps
   // toggleSidebar's semantics right (narrow toggles flip the manual
-  // re-expand override, stores.ts). Collapsed is decided here, so the
-  // solver stays breakpoint-free: a narrow re-expand passes the preference
-  // (or the default when the wide preference is closed) and the center
-  // absorbs the squeeze.
+  // re-expand override, stores.ts). Narrow frames use a zero-width grid track
+  // because the SidebarRoot drawer is fixed above the conversation instead of
+  // squeezing it. The ordinary solver still resolves the drawer's preferred
+  // width below.
   const narrow = viewport < SIDEBAR_AUTO_COLLAPSE
   useEffect(() => { actions.setNarrow(narrow) }, [actions, narrow])
   const sidebarCollapsed = narrow ? !panels.narrowExpanded : panels.sidebar === 0
   const sidebarPreference = sidebarCollapsed
     ? 0
     : panels.sidebar === 0 ? SIDEBAR_DEFAULT : panels.sidebar
-  const cols = computeColumns(viewport, sidebarPreference, detailsSession === undefined ? 0 : panels.details)
+  const detailsPreference = detailsSession === undefined ? 0 : panels.details
+  const cols = computeColumns(viewport, sidebarPreference, detailsPreference, { sidebarOverlay: narrow })
+  const sidebarWidth = narrow
+    ? sidebarCollapsed ? 0 : computeColumns(viewport, sidebarPreference, 0).sidebar
+    : cols.sidebar
   const colsRef = useRef(cols)
   colsRef.current = cols
 
@@ -179,6 +184,7 @@ export function AppFrame({
       style={{ gridTemplateColumns: `${cols.sidebar}px minmax(0, 1fr) ${cols.details}px` }}
       data-sidebar-collapsed={sidebarCollapsed || undefined}
       data-details-collapsed={cols.details === 0 || undefined}
+      data-mobile={narrow || undefined}
       data-dragging={dragging || undefined}
     >
       <DocumentTitle
@@ -186,14 +192,14 @@ export function AppFrame({
         {...documentTitle === undefined ? {} : { title: documentTitle }}
       />
       <div className={css.sidebarCol}>
-        {/* Render-site slot call with live concession output: a closed
-            sidebar keeps the mounted slot at the compact-rail width, and the
-            component sees its rendered state as owner params decided here
-            (collapsed follows the resolved rail, so a derived auto-collapse
-            renders the rail UI too). */}
+        {/* Render-site slot call with live layout output. Desktop closed state
+            keeps the mounted slot at the compact-rail width. Narrow state
+            leaves the grid track at zero and gives the sidebar its drawer
+            width; the slot occupant owns the fixed overlay chrome. */}
         {renderSlot('sidebar', {
           collapsed: sidebarCollapsed,
-          width: cols.sidebar,
+          width: sidebarWidth,
+          mobile: narrow,
         })}
       </div>
       <>
@@ -210,8 +216,9 @@ export function AppFrame({
       <div className={css.overlayLayer} data-shell-overlay>
         {renderSlot('shell.overlay', {})}
       </div>
-      {/* The collapsed rail is fixed-width: no resize handle while closed. */}
-      {!sidebarCollapsed && <DragHandle side="sidebar" left={cols.sidebar} onStart={onSidebarStart} onDrag={onSidebarDrag} onEnd={onDragEnd} />}
+      {/* Desktop expanded sidebars expose a resize handle; the mobile drawer
+          has no handle because it is fixed above the conversation. */}
+      {!narrow && !sidebarCollapsed && <DragHandle side="sidebar" left={cols.sidebar} onStart={onSidebarStart} onDrag={onSidebarDrag} onEnd={onDragEnd} />}
       {cols.details > 0 && <DragHandle side="details" left={viewport - cols.details} onStart={onDetailsStart} onDrag={onDetailsDrag} onEnd={onDragEnd} />}
     </div>
   )
