@@ -18,6 +18,8 @@ import type {
   SessionProjectionBaseline,
   SessionSelectModelRequest,
   SessionSelectModelValue,
+  SessionResolveMarkdownImageRequest,
+  SessionResolveMarkdownImageValue,
 } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { WorkspaceRemote } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { WorkspaceFollowFrame } from '@deepseek-ai/dsh-api-workspace-controller/types'
@@ -152,6 +154,8 @@ export class FakeApiClient {
   onPrompt: (payload: unknown) => Promise<RpcResponse<{ accepted: true }>> = () => Promise.resolve(ok({ accepted: true as const }))
   onAttachment: (payload: unknown) => Promise<RpcResponse<{ attachment: { attachmentId: never; mediaType: 'image/png'; bytes: number; width: number; height: number }; data: string }>> =
     () => Promise.resolve(ok({ attachment: { attachmentId: 'a' as never, mediaType: 'image/png', bytes: 1, width: 1, height: 1 }, data: 'AA==' }))
+  onResolveMarkdownImage: (payload: SessionResolveMarkdownImageRequest) => Promise<RpcResponse<SessionResolveMarkdownImageValue>> =
+    () => Promise.resolve(err({ code: 'internal', message: 'not configured', details: {} }))
   onUpdateQueue: (payload: unknown) => Promise<RpcResponse<{ accepted: true }>> = () => Promise.resolve(ok({ accepted: true as const }))
   onCancel: (payload: unknown) => Promise<RpcResponse<{ accepted: true }>> = () => Promise.resolve(ok({ accepted: true as const }))
   onOpenWorkspacePath: (payload: unknown) => Promise<RemoteResult<{ opened: true }>> =
@@ -234,6 +238,11 @@ export class FakeApiClient {
         fork: payload => this.remoteResult('session.fork', payload, this.onFork(payload)),
         prompt: payload => this.remoteResult('session.prompt', payload, this.onPrompt(payload)),
         attachment: payload => this.remoteResult('session.attachment', payload, this.onAttachment(payload)),
+        resolveMarkdownImage: payload => this.remoteResult(
+          'session.resolveMarkdownImage',
+          payload,
+          this.onResolveMarkdownImage(payload),
+        ),
         updateQueue: payload => this.remoteResult('session.updateQueue', payload, this.onUpdateQueue(payload)),
         cancel: payload => this.remoteResult('session.cancel', payload, this.onCancel(payload)),
         openWorkspacePath: payload => this.record(

@@ -19,6 +19,8 @@ import type {
   SessionQueuedItem,
   SessionRequestId,
   SessionError,
+  SessionResolveMarkdownImageRequest,
+  SessionResolveMarkdownImageValue,
 } from '../../types.ts'
 import type { ClientFailure, ClientResult } from '../contract/result.ts'
 import { transportResult } from '../contract/result.ts'
@@ -309,6 +311,24 @@ export class Session implements SessionFace {
       const binary = atob(result.value.data)
       const data = Uint8Array.from(binary, char => char.charCodeAt(0))
       return { ok: true, value: { attachment: result.value.attachment, data } }
+    } catch (error) {
+      return transportResult(error)
+    }
+  }
+
+  /**
+   * Resolve one local Markdown image occurrence and commit its durable mapping.
+   * @param input - message-local occurrence and authored destination.
+   * @param signal - cancellation for Host path and attachment work.
+   * @returns the authenticated durable mapping result.
+   */
+  async resolveMarkdownImage(
+    input: Omit<SessionResolveMarkdownImageRequest, 'sessionId'>,
+    signal?: AbortSignal,
+  ): Promise<ClientResult<SessionResolveMarkdownImageValue>> {
+    try {
+      const result = await this.remote.session.resolveMarkdownImage({ ...input, sessionId: this.sessionId }, signal)
+      return toSessionResult(result)
     } catch (error) {
       return transportResult(error)
     }

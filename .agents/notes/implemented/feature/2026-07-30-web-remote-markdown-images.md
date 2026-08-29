@@ -10,7 +10,7 @@ Assistant Markdown can name diagrams and screenshots with standard image syntax,
 
 ## Decision
 
-`MarkdownText` renders absolute HTTP(S) image destinations as lazy, responsive `<img>` elements with asynchronous decoding and `referrerPolicy="no-referrer"`. Relative paths, absolute local paths, `file:` URLs, and unsupported schemes retain the existing alt-text fallback. Raw HTML stays disabled, so an assistant cannot bypass the Markdown image component with a hand-authored `<img>`.
+`MarkdownText` renders absolute HTTP(S) image destinations as lazy, responsive `<img>` elements with asynchronous decoding and `referrerPolicy="no-referrer"`. Relative paths, absolute local paths, `file:` URLs, and unsupported schemes retain the alt-text fallback in the primitive itself; the authenticated Chat target may replace finalized local occurrences through the separate durable-mapping feature. Raw HTML stays disabled, so an assistant cannot bypass the Markdown image component with a hand-authored `<img>`.
 
 The image component reuses the renderer's absolute-URL policy without adding a host proxy, local-file route, Session dependency, sanitizer, or image fetcher. Finalized history, streaming output, interrupted partials, and every other `MarkdownText` consumer receive the same behavior.
 
@@ -26,4 +26,4 @@ The image component reuses the renderer's absolute-URL policy without adding a h
 
 ## Consequences
 
-Assistant replies display remote images during streaming and replay without changing session events or host protocols. Remote origins still observe the image request, client network address, and any credentials that browser policy permits for that origin. Local and unsupported destinations remain inert alt text.
+Assistant replies display remote images during streaming and replay without changing session events or host protocols. Remote origins still observe the image request, client network address, and any credentials that browser policy permits for that origin. Local Markdown destinations remain inert for consumers without the Session mapping owner, and Chat history uses durable attachment bytes after a successful mapping.

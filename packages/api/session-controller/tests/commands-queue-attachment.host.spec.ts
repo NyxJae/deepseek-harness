@@ -159,6 +159,7 @@ describe('Session attachment authorization', () => {
     const message = imageRef('message')
     const inserted = imageRef('inserted')
     const streamed = imageRef('streamed')
+    const mapped = imageRef('mapped')
     const events = [
       event('fixture/direct', 0, {
         content: [null, [], { type: 'tool-result', content: [{ type: 'text', text: 'none' }] }, {
@@ -186,15 +187,24 @@ describe('Session attachment authorization', () => {
         step: 1,
         chunk: { type: 'block-end', index: 0, block: { type: 'image', attachment: streamed } },
       }),
+      event('assistant/markdown-image', 4, {
+        turn: 1,
+        step: 1,
+        messageId: MessageId('mapped-message'),
+        textBlockIndex: 0,
+        imageIndex: 0,
+        destination: 'mapped.png',
+        attachment: mapped,
+      }),
     ]
     const readImage = vi.fn((ref: ImageAttachmentRef) => Promise.resolve({ ref, data: Uint8Array.of(1) }))
     const { ctx, controller, sessionId } = await persistedController(events, readImage)
 
-    for (const ref of [nested, message, inserted, streamed]) {
+    for (const ref of [nested, message, inserted, streamed, mapped]) {
       await expect(controller.attachment({ sessionId, attachmentId: ref.attachmentId }))
         .resolves.toEqual({ attachment: ref, data: 'AQ==' })
     }
-    expect(readImage).toHaveBeenCalledTimes(4)
+    expect(readImage).toHaveBeenCalledTimes(5)
     await ctx.fiber.dispose()
   })
 

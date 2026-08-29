@@ -10,7 +10,13 @@ import type { MessageImageLabels } from '../MessageImage.tsx'
  * @returns translated lightbox labels.
  */
 export function lightboxLabels(t: TranslateNS<'conversation'>): ImageLightboxLabels {
-  return { dialog: t('image.preview'), close: t('image.closePreview') }
+  return {
+    dialog: t('image.preview'),
+    close: t('image.closePreview'),
+    zoomIn: t('image.zoomIn'),
+    zoomOut: t('image.zoomOut'),
+    resetZoom: t('image.resetZoom'),
+  }
 }
 
 /**

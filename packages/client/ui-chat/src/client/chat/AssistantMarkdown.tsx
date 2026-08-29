@@ -1,9 +1,11 @@
-import { Fragment, memo, useMemo } from 'react'
+import { Fragment, memo, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { JsonBlock, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownFileMentions, MarkdownImageResolver } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatNodeOwnerProps, ChatViewSlotProps } from '../contract/slots.ts'
+import type { AssistantMarkdownImage } from '../contract/chat-nodes.ts'
 import type { AssistantBlock } from '../contract/snapshot.ts'
+import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import { markdownLabels } from '../markdown-labels.ts'
 import { ReasoningRow } from './ReasoningRow.tsx'
 import { useSearchableHidden } from './searchable-hidden.ts'
@@ -16,6 +18,12 @@ export interface AssistantMarkdownProps {
   interrupted?: boolean | undefined
   /** Render consecutive image blocks through the attachment slot. */
   renderMessageImages: ChatNodeOwnerProps['renderMessageImages']
+  /** Resolve a local Markdown image through the Session behavior API. */
+  resolveMarkdownImage?: ChatNodeOwnerProps['resolveMarkdownImage'] | undefined
+  /** Durable Assistant message identity used for local Markdown image mapping. */
+  messageId?: MessageId | undefined
+  /** Mapping events already observed for this Assistant message. */
+  markdownImages?: readonly AssistantMarkdownImage[] | undefined
   /** Hide reasoning that belongs to the Turn-level process disclosure. */
   reasoningHidden?: boolean | undefined
   /** Reveal the owning Turn-level process disclosure. */
@@ -28,7 +36,8 @@ export interface AssistantMarkdownProps {
 
 /** Reasoning block as the Think variant summary row (figma 39:28304). */
 export const AssistantMarkdown = memo(function AssistantMarkdown({
-  blocks, streaming, interrupted, renderMessageImages,
+  blocks, streaming, interrupted, renderMessageImages, resolveMarkdownImage,
+  messageId, markdownImages = [],
   reasoningHidden = false, revealProcess, mentions, t,
 }: AssistantMarkdownProps) {
   // Stable per locale revision (t identity changes on switch): a fresh object
@@ -47,7 +56,29 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
     const block = blocks[i]
     if (block === undefined) continue
     switch (block.kind) {
-      case 'text':
+      case 'text': {
+        const imageResolver: MarkdownImageResolver | undefined = messageId === undefined || resolveMarkdownImage === undefined
+          ? undefined
+          : {
+            resolve: ({ url, alt, index }) => {
+              if (!isLocalMarkdownDestination(url)) return undefined
+              const mapping = markdownImages.find(item =>
+                item.messageId === messageId
+                && item.textBlockIndex === i
+                && item.imageIndex === index
+                && item.destination === url)
+              return (
+                <LocalMarkdownImage
+                  input={{ destination: url, alt, textBlockIndex: i, imageIndex: index }}
+                  mapping={mapping}
+                  messageId={messageId}
+                  resolve={resolveMarkdownImage}
+                  renderMessageImages={renderMessageImages}
+                  t={t}
+                />
+              )
+            },
+          }
         rendered.push(
           <MarkdownText
             key={i}
@@ -55,9 +86,11 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
             streaming={streaming}
             labels={labels}
             fileMentions={mentions}
+            imageResolver={imageResolver}
           />,
         )
         break
+      }
       case 'reasoning':
         rendered.push(
           <ProcessReasoning
@@ -116,6 +149,94 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
     </div>
   )
 })
+
+type LocalMarkdownImageInput = {
+  readonly destination: string
+  readonly alt: string
+  readonly textBlockIndex: number
+  readonly imageIndex: number
+}
+
+function isLocalMarkdownDestination(destination: string): boolean {
+  if (destination.startsWith('//')) return false
+  if (destination.startsWith('file:')) return true
+  if (/^[A-Za-z]:[\\/]/.test(destination)) return true
+  try {
+    const protocol = new URL(destination).protocol
+    return protocol !== 'http:' && protocol !== 'https:' && protocol === ''
+  } catch {
+    return !/^[A-Za-z][A-Za-z0-9+.-]*:/.test(destination)
+  }
+}
+
+function LocalMarkdownImage({
+  input, mapping, messageId, resolve, renderMessageImages, t,
+}: {
+  input: LocalMarkdownImageInput
+  mapping: AssistantMarkdownImage | undefined
+  messageId: MessageId
+  resolve: ChatNodeOwnerProps['resolveMarkdownImage'] | undefined
+  renderMessageImages: ChatNodeOwnerProps['renderMessageImages']
+  t: ChatViewSlotProps['t']
+}) {
+  const [resolved, setResolved] = useState<AssistantMarkdownImage | undefined>(mapping)
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  useEffect(() => {
+    if (mapping !== undefined) {
+      setResolved(mapping)
+      setFailed(false)
+      return
+    }
+    setResolved(undefined)
+    setFailed(false)
+    if (resolve === undefined) return
+    const controller = new AbortController()
+    let live = true
+    void resolve({
+      messageId,
+      textBlockIndex: input.textBlockIndex,
+      imageIndex: input.imageIndex,
+      destination: input.destination,
+    }, controller.signal).then((result) => {
+      if (!live) return
+      if (result.ok) setResolved(result.value)
+      else setFailed(true)
+    }, () => {
+      if (live) setFailed(true)
+    })
+    return () => {
+      live = false
+      controller.abort()
+    }
+  }, [attempt, input.destination, input.imageIndex, input.textBlockIndex, mapping, messageId, resolve])
+
+  if (resolved !== undefined) {
+    return renderMessageImages({
+      images: [{ attachment: resolved.attachment }],
+      align: 'start',
+      inline: true,
+    })
+  }
+  if (failed) {
+    return (
+      <button
+        type="button"
+        className={css.localImageRetry}
+        title={t('message.localImage.failed')}
+        aria-label={t('message.localImage.retry')}
+        onClick={() => { setAttempt(value => value + 1) }}
+      >
+        {t('message.localImage.retry')}
+      </button>
+    )
+  }
+  return (
+    <span className={css.localImageStatus} aria-live="polite">
+      {t('message.localImage.loading')}
+    </span>
+  )
+}
 
 function ProcessReasoning({ hidden, reveal, children }: {
   hidden: boolean

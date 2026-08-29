@@ -17,6 +17,7 @@
     "src/file-references.ts",
     "src/history.ts",
     "src/list.ts",
+    "src/markdown-images.ts",
     "src/model-selection-projection.ts",
     "src/skill-catalog.ts"
   ],
@@ -33,7 +34,9 @@
     { "path": "../../jobs/jobs" },
     { "path": "../../llm/llm" },
     { "path": "../../util/native-command" },
+    { "path": "../../fs/fs" },
     { "path": "../../preset/agent-presets" },
+    { "path": "../../workspace/workspace" },
     { "path": "../../runtime-diagnostics/invariants" },
     { "path": "../../session/session-persistence" },
     { "path": "../../session/session-projection" },
@@ -44,6 +47,5 @@
     { "path": "../../subagent/subagent" },
     { "path": "../../typert/protocol" },
     { "path": "../../typert/registry" },
-    { "path": "../../workspace/workspace" }
   ]
 }

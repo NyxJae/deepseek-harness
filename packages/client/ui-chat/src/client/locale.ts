@@ -111,6 +111,9 @@ export const zh = {
   'json.truncated': '… 已截断，共 {total} 字符',
   'clock.md': '{m}月{d}日',
   'clock.ymd': '{y}年{m}月{d}日',
+  'message.localImage.loading': '正在加载本地图片…',
+  'message.localImage.retry': '重新加载本地图片',
+  'message.localImage.failed': '本地图片加载失败',
 } satisfies Record<string, string>
 
 /** Chat dictionary key union. */
@@ -223,5 +226,8 @@ export const en = {
   'row.failed': 'Failed',
   'json.truncated': '… truncated, {total} characters total',
   'clock.md': '{m}/{d}',
-  'clock.ymd': '{y}-{m}-{d}',
+  'clock.ymd': '{y}/{m}/{d}',
+  'message.localImage.loading': 'Loading local image…',
+  'message.localImage.retry': 'Retry local image',
+  'message.localImage.failed': 'Local image failed to load',
 } satisfies Record<ChatKey, string>

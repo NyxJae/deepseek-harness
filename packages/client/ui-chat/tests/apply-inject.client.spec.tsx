@@ -39,7 +39,10 @@ function sessionFakeFor() {
       ok: true,
       value: { attachment: ATTACHMENT, data: Uint8Array.of(1) },
     })),
-    prompt: vi.fn<ISession['prompt']>(() => Promise.resolve({ ok: true, value: { accepted: true } })),
+    resolveMarkdownImage: vi.fn<ISession['resolveMarkdownImage']>(() => Promise.resolve({
+      ok: false,
+      error: { code: 'internal', message: 'not configured', details: {} },
+    })),
     cancel: vi.fn<ISession['cancel']>(() => Promise.resolve({ ok: true, value: { accepted: true } })),
   } satisfies SessionBehaviorOverrides
 }

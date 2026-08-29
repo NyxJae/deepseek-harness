@@ -24,6 +24,7 @@ function makeContext(): MarkdownRenderContext {
     fileMentions: undefined,
     targets: createReferenceTargets(),
     footnoteOrder: [],
+    nextImageIndex: (() => { let index = 0; return () => index++ })(),
     footnoteCounts: new Map(),
   }
 }

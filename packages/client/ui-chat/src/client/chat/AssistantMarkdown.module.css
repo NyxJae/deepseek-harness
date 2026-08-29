@@ -62,6 +62,34 @@
   line-height: 18px;
 }
 
+.localImageStatus,
+.localImageRetry {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  font-size: 12px;
+  line-height: 24px;
+}
+
+.localImageStatus {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.localImageRetry {
+  cursor: pointer;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.localImageRetry:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
 /* Finalized footer offset (figma 43:32997); chrome lives in MessageIconActions. */
 .actions {
   margin-top: 16px;

@@ -79,8 +79,9 @@ export interface MessageImagesOwnerProps {
   loadImage: MessageImageLoader
   /** Horizontal placement inside the owning record. */
   align: 'start' | 'end'
+  /** Render a single image as an inline control inside Markdown phrasing content. */
+  inline?: boolean
 }
-
 /** Slot-backed renderer used by Conversation targets without importing an attachment implementation. */
 export type RenderMessageImages = (owner: Omit<MessageImagesOwnerProps, 'loadImage'>) => ReactNode
 

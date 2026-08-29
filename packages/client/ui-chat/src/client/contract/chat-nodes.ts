@@ -1,3 +1,4 @@
+import type { SessionMarkdownImageMapping } from '@deepseek-ai/dsh-api-session-controller/types'
 import type {
   AssistantBlock, AssistantMessageNode, CommandNode, CompactionSummaryNode,
   ConversationLocation, ConversationViewNode, ModelRetryNode, RunningToolCall,
@@ -25,6 +26,8 @@ export type ChatNode<Kind extends ChatNodeKind = ChatNodeKind> = {
     readonly data: ChatNodeDataMap[RegisteredKind]
   }
 }[Kind]
+/** Assistant-local durable mapping for one Markdown image occurrence. */
+export type AssistantMarkdownImage = SessionMarkdownImageMapping
 
 /** Final Assistant row payload shared by streaming and settled states. */
 export interface AssistantChatData {
@@ -35,6 +38,7 @@ export interface AssistantChatData {
   readonly time: number
   readonly usage?: unknown
   readonly finalNode?: AssistantMessageNode
+  readonly markdownImages?: readonly AssistantMarkdownImage[]
 }
 
 /** Settled or interrupted Assistant payload with its durable presentation node. */

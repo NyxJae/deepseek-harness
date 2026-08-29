@@ -20,6 +20,7 @@ import { ApiSessionList, DEFAULT_COLD_BLANK_PROBE_MAX_BYTES } from './list.ts'
 import { buildModelCatalog } from './catalog.ts'
 import { installModelSelectionProjection } from './model-selection-projection.ts'
 import { SessionSkillCatalog } from './skill-catalog.ts'
+import { SessionMarkdownImageResolver } from './markdown-images.ts'
 import type {
   ModelCatalog,
   SessionAttachmentRequest,
@@ -49,6 +50,8 @@ import type {
   SessionSelectModelValue,
   SessionUpdateQueueRequest,
   SessionUpdateQueueValue,
+  SessionResolveMarkdownImageRequest,
+  SessionResolveMarkdownImageValue,
 } from './types.ts'
 
 export type * from './types.ts'
@@ -69,6 +72,8 @@ export interface Config {
   readonly coldBlankProbeMaxBytes?: number
   /** Override platform desktop-opener detection. */
   readonly nativeOpen?: boolean
+  /** Local Markdown image admission policy; omitted means disabled. */
+  readonly localMarkdownImages?: import('./markdown-images.ts').LocalMarkdownImagesConfig
 }
 
 /** Host integrations replaceable by direct unit tests. */
@@ -91,14 +96,19 @@ export class SessionController extends TypertRemoteService {
     'sessionQuery',
     'typert',
     'workspaceRegistry',
+    'fs',
   ]
 
   static Config: z<Config> = z.object({
     coldBlankProbeMaxBytes: z.natural().default(DEFAULT_COLD_BLANK_PROBE_MAX_BYTES),
     nativeOpen: z.boolean(),
+    localMarkdownImages: z.object({
+      mode: z.union([z.const('disabled'), z.const('workspaces'), z.const('host')]).default('disabled'),
+    }).default({ mode: 'disabled' }),
   })
 
   private readonly agents: ApiSessionAgentController
+  private readonly markdownImages: SessionMarkdownImageResolver
   private readonly commands: SessionCommandController
   private readonly controlState: SessionControlController
   private readonly history: SessionHistoryController
@@ -123,6 +133,11 @@ export class SessionController extends TypertRemoteService {
       await Promise.allSettled([...this.promotions])
     }, 'session-controller.promotions')
     this.history = new SessionHistoryController(ctx, (observation) => { this.promote(observation) })
+    this.markdownImages = new SessionMarkdownImageResolver(
+      ctx,
+      this.agents,
+      config.localMarkdownImages ?? { mode: 'disabled' },
+    )
     this.listState = new ApiSessionList(
       ctx,
       config.coldBlankProbeMaxBytes ?? DEFAULT_COLD_BLANK_PROBE_MAX_BYTES,
@@ -336,6 +351,21 @@ export class SessionController extends TypertRemoteService {
   @Remote('attachment')
   attachment(request: SessionAttachmentRequest): Promise<SessionAttachmentValue> {
     return this.commands.attachment(request)
+  }
+
+  /**
+   * Resolve one local Markdown image into a durable Session attachment.
+   * @param request - Session and message-local image occurrence.
+   * @param signal - cancellation for filesystem and attachment admission.
+   * @returns the durable mapping.
+   */
+  @Remote('resolveMarkdownImage')
+  resolveMarkdownImage(
+    request: SessionResolveMarkdownImageRequest,
+    signal: AbortSignal,
+  ): Promise<SessionResolveMarkdownImageValue> {
+    signal.throwIfAborted()
+    return this.markdownImages.resolve(request, signal)
   }
 
   /**

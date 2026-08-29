@@ -512,6 +512,26 @@ describe('MarkdownText', () => {
     expect(live.container.querySelectorAll('.katex-display')).toHaveLength(1)
     expect(live.container.querySelector('.katex-error')).toBeNull()
   })
+  it('calls the settled image resolver once per image in nested document order', () => {
+    const seen: Array<{ url: string; alt: string; index: number }> = []
+    const resolver = {
+      resolve: (input: { url: string; alt: string; index: number }) => {
+        seen.push(input)
+        return <span data-testid={`resolved-${input.index}`}>{input.alt}</span>
+      },
+    }
+    const live = render(<MarkdownText text={'![first](first.png)\n\n> ![second](second.webp)'} imageResolver={resolver} />)
+
+    expect(seen).toEqual([
+      { url: 'first.png', alt: 'first', index: 0 },
+      { url: 'second.webp', alt: 'second', index: 1 },
+    ])
+    expect(live.queryByTestId('resolved-0')).toBeTruthy()
+    expect(live.queryByTestId('resolved-1')).toBeTruthy()
+
+    live.rerender(<MarkdownText text={'![first](first.png)'} streaming imageResolver={resolver} />)
+    expect(seen).toHaveLength(2)
+  })
 })
 
 describe('JsonBlock', () => {

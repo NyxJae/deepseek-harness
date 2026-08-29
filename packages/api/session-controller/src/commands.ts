@@ -554,7 +554,13 @@ function imageInEvent(
     readonly content?: unknown
     readonly message?: { readonly content?: unknown }
     readonly inserted?: readonly { readonly content?: unknown }[]
+    readonly attachment?: unknown
     readonly chunk?: { readonly type?: unknown; readonly block?: unknown }
+  }
+  if (event.type === 'assistant/markdown-image'
+    && typeof data.attachment === 'object' && data.attachment !== null) {
+    const ref = data.attachment as ImageAttachmentRef
+    if (match(ref)) return ref
   }
   const direct = imageBlockIn(data.content, match)
   if (direct !== undefined) return direct
