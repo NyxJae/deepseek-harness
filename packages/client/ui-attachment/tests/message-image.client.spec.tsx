@@ -17,7 +17,7 @@ const labels: MessageImageLabels = {
   openNamed: label => `${label}，点击查看原图`,
   loading: '图片加载中…',
   loadFailed: '图片加载失败，点击重试',
-  lightbox: { dialog: '原图预览', close: '关闭原图预览' },
+  lightbox: { dialog: '原图预览', close: '关闭原图预览', zoomIn: '放大', zoomOut: '缩小', resetZoom: '重置缩放' },
 }
 
 const attachment = {
@@ -56,6 +56,14 @@ describe('MessageImage', () => {
     expect((view.getByAltText('history.png') as HTMLImageElement).src).toContain('blob:seeded')
     expect(load).toHaveBeenCalledWith(attachment)
   })
+
+  it('uses authored Markdown alt text for a durable attachment', async () => {
+    const load = vi.fn().mockResolvedValue('blob:authored-alt')
+    const view = render(<MessageImage image={{ attachment, alt: 'authored alt' }} load={load} variant="single" labels={labels} />)
+    await waitFor(() => { expect(view.getByAltText('authored alt')).toBeTruthy() })
+    expect(view.getByRole('button', { name: 'authored alt，点击查看原图' })).toBeTruthy()
+  })
+
 
   it('loads a session-authorized URL, bounds the thumbnail, and clicks into the original', async () => {
     const load = vi.fn().mockResolvedValue('blob:history')

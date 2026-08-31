@@ -29,6 +29,19 @@
   border-right: 1px solid var(--dsw-alias-border-l1);
 }
 
+/* A mobile SidebarRoot is fixed above the frame. Keep the zero-width grid
+   column transparent and let only fixed descendants receive pointer input. */
+.frame[data-mobile] .sidebarCol {
+  overflow: visible;
+  background: transparent;
+  border-right: none;
+  pointer-events: none;
+}
+
+.frame[data-mobile] .sidebarCol > * {
+  pointer-events: auto;
+}
+
 .centerCol {
   min-width: 0;
   display: flex;

@@ -40,6 +40,7 @@ export type SessionRemote = ClientRemote['session']
 /** Opening metadata carried only by a follow snapshot, never by loadOlder pages. */
 interface SessionJournalPage extends SessionPage {
   readonly projections?: SessionProjectionBaseline
+  readonly localMarkdownImages?: boolean
 }
 
 /** One complete publication from the Session journal stream. */
@@ -182,6 +183,7 @@ export class SessionEventStream extends RemoteJournalStream<
             records: frame.records,
             hasMore: frame.hasMore,
             projections: frame.projections,
+            ...(frame.localMarkdownImages === undefined ? {} : { localMarkdownImages: frame.localMarkdownImages }),
           },
         }
         continue

@@ -55,3 +55,11 @@
   background: var(--dsw-alias-bg-module-platform);
   border-color: var(--dsw-static-neutral-bluish-400);
 }
+
+@media (max-width: 640px) {
+  .themeCube {
+    flex: 1 1 140px;
+    min-width: 0;
+    padding: 16px 12px;
+  }
+}

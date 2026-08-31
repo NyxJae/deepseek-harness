@@ -559,7 +559,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ISession',
-    declaration: 'export interface ISession {\n    readonly sessionId: SessionId;\n    readonly projections: ProjectionsFace;\n    beginSubmission(input: BeginSubmissionInput): SubmissionHandle;\n    prompt(content: PromptContentPart[], mode: \'queue\' | \'steer\', signal?: AbortSignal, requestId?: SessionRequestId): Promise<RemoteResult<{\n        accepted: true;\n    }>>;\n    readAttachment(attachmentId: AttachmentIdType): Promise<RemoteResult<{\n        attachment: ImageAttachmentRef;\n        data: Uint8Array;\n    }>>;\n    updateQueue(itemId: MessageId, action: QueueAction): Promise<RemoteResult<{\n        accepted: true;\n    }>>;\n    cancel(): Promise<RemoteResult<{\n        accepted: true;\n    }>>;\n    rename(title: string): Promise<RemoteResult<{\n        title: string;\n        seq: number;\n    }>>;\n    loadOlder(): Promise<void>;\n    command(line: string): Promise<RemoteResult<{\n        matched: boolean;\n    }>>;\n}',
+    declaration: 'export interface ISession {\n    readonly sessionId: SessionId;\n    readonly projections: ProjectionsFace;\n    beginSubmission(input: BeginSubmissionInput): SubmissionHandle;\n    prompt(content: PromptContentPart[], mode: \'queue\' | \'steer\', signal?: AbortSignal, requestId?: SessionRequestId): Promise<RemoteResult<{\n        accepted: true;\n    }>>;\n    readAttachment(attachmentId: AttachmentIdType): Promise<RemoteResult<{\n        attachment: ImageAttachmentRef;\n        data: Uint8Array;\n    }>>;\n    canResolveMarkdownImage?: () => boolean;\n    resolveMarkdownImage(input: Omit<SessionResolveMarkdownImageRequest, \'sessionId\'>, signal?: AbortSignal): Promise<RemoteResult<SessionResolveMarkdownImageValue>>;\n    updateQueue(itemId: MessageId, action: QueueAction): Promise<RemoteResult<{\n        accepted: true;\n    }>>;\n    cancel(): Promise<RemoteResult<{\n        accepted: true;\n    }>>;\n    rename(title: string): Promise<RemoteResult<{\n        title: string;\n        seq: number;\n    }>>;\n    loadOlder(): Promise<void>;\n    command(line: string): Promise<RemoteResult<{\n        matched: boolean;\n    }>>;\n}',
   },
   {
     name: 'KeyPropsOf',
@@ -722,6 +722,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type SessionLiveEventEntry = Extract<SessionEventLikeEntry, {\n    readonly type: \'event\';\n}>;',
   },
   {
+    name: 'SessionMarkdownImageMapping',
+    declaration: 'export interface SessionMarkdownImageMapping {\n    readonly turn: number;\n    readonly step: number;\n    readonly messageId: MessageId;\n    readonly textBlockIndex: number;\n    readonly imageIndex: number;\n    readonly destination: string;\n    readonly attachment: ImageAttachmentRef;\n}',
+  },
+  {
     name: 'SessionMaybeStandardProps',
     declaration: 'export interface SessionMaybeStandardProps {\n}',
   },
@@ -732,6 +736,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SessionRequestId',
     declaration: 'export type SessionRequestId = Branded<\'session-request-id\'>;',
+  },
+  {
+    name: 'SessionResolveMarkdownImageRequest',
+    declaration: 'export interface SessionResolveMarkdownImageRequest {\n    readonly sessionId: SessionId;\n    readonly messageId: MessageId;\n    readonly textBlockIndex: number;\n    readonly imageIndex: number;\n    readonly destination: string;\n}',
+  },
+  {
+    name: 'SessionResolveMarkdownImageValue',
+    declaration: 'export interface SessionResolveMarkdownImageValue extends SessionMarkdownImageMapping {\n}',
   },
   {
     name: 'SessionSearchResultItem',

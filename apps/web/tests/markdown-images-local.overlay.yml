@@ -1,0 +1,4 @@
+- id: session-controller
+  config:
+    localMarkdownImages:
+      mode: host

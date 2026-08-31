@@ -23,6 +23,8 @@ import type {
   ModelCatalog,
   SessionAttachmentRequest,
   SessionAttachmentValue,
+  SessionResolveMarkdownImageRequest,
+  SessionResolveMarkdownImageValue,
   SessionCancelRequest,
   SessionCancelValue,
   SessionControlFrame,
@@ -62,6 +64,10 @@ export interface TestSessionRemote {
   fork(request: SessionForkRequest): Promise<RemoteResult<SessionForkValue>>
   prompt(request: SessionPromptRequest, signal?: AbortSignal): Promise<RemoteResult<SessionPromptValue>>
   attachment(request: SessionAttachmentRequest): Promise<RemoteResult<SessionAttachmentValue>>
+  resolveMarkdownImage(
+    request: SessionResolveMarkdownImageRequest,
+    signal?: AbortSignal,
+  ): Promise<RemoteResult<SessionResolveMarkdownImageValue>>
   updateQueue(request: SessionUpdateQueueRequest): Promise<RemoteResult<SessionUpdateQueueValue>>
   cancel(request: SessionCancelRequest): Promise<RemoteResult<SessionCancelValue>>
   openWorkspacePath(
@@ -261,6 +267,10 @@ export function createSessionTestRemote(
       signal,
     ),
     attachment: request => remoteResult(() => direct.attachment(request)),
+    resolveMarkdownImage: (request, signal = new AbortController().signal) => remoteResult(
+      () => direct.resolveMarkdownImage(request, signal),
+      signal,
+    ),
     updateQueue: request => remoteResult(() => direct.updateQueue(request)),
     cancel: request => remoteResult(() => direct.cancel(request)),
     openWorkspacePath: (request, signal = new AbortController().signal) => remoteResult(

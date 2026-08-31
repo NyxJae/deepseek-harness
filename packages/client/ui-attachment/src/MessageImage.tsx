@@ -11,7 +11,11 @@ export type ImageLoader = ((attachment: ImageAttachmentRef) => Promise<string>) 
 
 /** One gallery entry: a durable admitted reference, or a submission echo's local preview. */
 export type MessageImageSpec =
-  | { readonly attachment: ImageAttachmentRef }
+  | {
+    readonly attachment: ImageAttachmentRef
+    /** Authored Markdown alternative text, when the image came from Markdown. */
+    readonly alt?: string
+  }
   | {
     readonly preview: {
       readonly url: string
@@ -20,7 +24,6 @@ export type MessageImageSpec =
       readonly height?: number
     }
   }
-
 /** Message-image strings the owner resolves from its own locale namespace. */
 export interface MessageImageLabels {
   /** Fallback display name for an unnamed image. */
@@ -84,6 +87,7 @@ export function MessageImage({ image, load, variant, labels }: {
 }) {
   const preview = 'preview' in image ? image.preview : undefined
   const attachment = 'attachment' in image ? image.attachment : undefined
+  const alt = 'attachment' in image ? image.alt : undefined
   const [loaded, setLoaded] = useState<string | null>(() =>
     attachment === undefined ? null : (load.peek?.(attachment) ?? null))
   const [error, setError] = useState(false)
@@ -116,7 +120,7 @@ export function MessageImage({ image, load, variant, labels }: {
   }, [attachment, load, attempt])
 
   const src = preview?.url ?? loaded
-  const label = (preview?.name ?? attachment?.name) ?? labels.image
+  const label = alt ?? preview?.name ?? attachment?.name ?? labels.image
   if (error) return <button type="button" className={css.error} data-variant={variant} onClick={request}>{labels.loadFailed}</button>
   return (
     <>

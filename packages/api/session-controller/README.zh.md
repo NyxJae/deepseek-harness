@@ -40,8 +40,11 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用�
 |---|---:|---|
 | `coldBlankProbeMaxBytes` | `1,024` | 可进行空白状态验证的冷 Session 工件最大物理大小；`0` 禁用探测 |
 | `nativeOpen` | 平台探测 | 是否能把 Session 工作区路径交给原生桌面打开器 |
+| `localMarkdownImages.mode` | `disabled` | 是否允许已完成 Assistant Markdown 通过耐久 Session 附件解析本地图片；`workspaces` 将读取限制在已注册 Workspace 根目录，`host` 则允许任意可读取的受支持图片 |
 
 生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-api-session-controller)是所有受支持字段及其 JSDoc 的完整来源。
+
+已完成 Assistant Markdown 的本地图片使用 `localMarkdownImages.mode`。Host 校验 Session 消息调用实例，通过 `ctx.fs` 读取源文件，经附件服务保存规范化字节并追加仅日志映射；随后 Chat 沿用结构化图片相同的认证附件读取路径，因此回放不需要源文件。该设置默认禁用。
 
 -----
 
@@ -61,6 +64,7 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用�
 - Control baseline 表示进程本地状态，因此 Host 重启后无法重建 jobs。
 - follow 恢复失败会对调用方可见，而不会无限重试。
 - 文件引用补全使用共享 Agent lookup，因此可能恢复冷 Session；`skills/list` 目录是不激活 Agent 的 skill 元数据读取路径。
+- 除非启用 `localMarkdownImages.mode`，否则本地 Markdown 图片解析会被禁用；`host` 有意授予活动文件系统提供方可读取图片的范围，`workspaces` 是较窄的已注册根目录选项。
 
 
 <a id="dev-note"></a>
@@ -70,5 +74,7 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用�
 <summary>维护者工作上下文——点击展开</summary>
 
 无。
+
+本地 Markdown 图片映射只写入日志，不改变模型可见请求或 token 计量。
 
 </details>

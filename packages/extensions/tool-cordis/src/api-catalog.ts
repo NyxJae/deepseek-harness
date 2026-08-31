@@ -1414,6 +1414,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the durable attachment reference and base64-encoded bytes.',
       },
       {
+        signature: '@Remote(\'resolveMarkdownImage\') resolveMarkdownImage( request: SessionResolveMarkdownImageRequest, signal: AbortSignal, ): Promise<SessionResolveMarkdownImageValue>',
+        description: 'Resolve one local Markdown image into a durable Session attachment.',
+        parameters: [{ name: 'request', description: 'Session and message-local image occurrence.' }, { name: 'signal', description: 'cancellation for filesystem and attachment admission.' }],
+        returns: 'the durable mapping.',
+      },
+      {
         signature: '@Remote(\'updateQueue\') updateQueue(request: SessionUpdateQueueRequest): SessionUpdateQueueValue',
         description: 'Mutate one still-pending queue occurrence on a live Agent.',
         parameters: [{ name: 'request', description: 'Session, queue item, and requested mutation.' }],
@@ -4925,7 +4931,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionFollowFrame',
-    declaration: 'export type SessionFollowFrame = {\n    readonly type: \'snapshot\';\n    readonly header: SessionHeader;\n    readonly cursor: number;\n    readonly records: readonly SessionHistoryRecord[];\n    readonly hasMore: boolean;\n    readonly projections: SessionProjectionBaseline;\n} | SessionEventEntry;',
+    declaration: 'export type SessionFollowFrame = {\n    readonly type: \'snapshot\';\n    readonly header: SessionHeader;\n    readonly cursor: number;\n    readonly records: readonly SessionHistoryRecord[];\n    readonly hasMore: boolean;\n    readonly projections: SessionProjectionBaseline;\n    readonly localMarkdownImages?: boolean;\n} | SessionEventEntry;',
   },
   {
     name: 'SessionFollowRequest',
@@ -4986,6 +4992,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SessionLogSnapshot',
     declaration: 'export interface SessionLogSnapshot {\n    session: SessionHeader;\n    events: SessionEvent[];\n}',
+  },
+  {
+    name: 'SessionMarkdownImageMapping',
+    declaration: 'export interface SessionMarkdownImageMapping {\n    readonly turn: number;\n    readonly step: number;\n    readonly messageId: MessageId;\n    readonly textBlockIndex: number;\n    readonly imageIndex: number;\n    readonly destination: string;\n    readonly attachment: ImageAttachmentRef;\n}',
   },
   {
     name: 'SessionObservation',
@@ -5098,6 +5108,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SessionRequestId',
     declaration: 'export type SessionRequestId = Branded<\'session-request-id\'>;',
+  },
+  {
+    name: 'SessionResolveMarkdownImageRequest',
+    declaration: 'export interface SessionResolveMarkdownImageRequest {\n    readonly sessionId: SessionId;\n    readonly messageId: MessageId;\n    readonly textBlockIndex: number;\n    readonly imageIndex: number;\n    readonly destination: string;\n}',
+  },
+  {
+    name: 'SessionResolveMarkdownImageValue',
+    declaration: 'export interface SessionResolveMarkdownImageValue extends SessionMarkdownImageMapping {\n}',
   },
   {
     name: 'SessionResultFilter',

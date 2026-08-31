@@ -219,6 +219,27 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 
 来源：[`packages/core/session/src/types.ts:246`](../packages/core/session/src/types.ts)
 
+<a id="assistantmarkdown-image--log-only"></a>
+
+#### `assistant/markdown-image` — log-only
+
+```ts persistence-catalog
+/**
+ * Durable mapping for one finalized Assistant Markdown image. Log-only;
+ * it is never included in the model-visible message surface.
+ * @param turn - Assistant turn containing the message.
+ * @param step - Assistant step containing the message.
+ * @param messageId - finalized Assistant message identity.
+ * @param textBlockIndex - zero-based text content-block index.
+ * @param imageIndex - zero-based image index within that text block.
+ * @param destination - authored Markdown destination validated by the Host.
+ * @param attachment - normalized durable image reference.
+ */
+'assistant/markdown-image': SessionMarkdownImageMapping
+```
+
+来源：[`packages/api/session-controller/src/types.ts:53`](../packages/api/session-controller/src/types.ts)
+
 <a id="assistantmessage--surface"></a>
 
 #### `assistant/message` — surface

@@ -119,6 +119,14 @@ export class FixtureSession implements SessionFace {
   readAttachment(_attachmentId: AttachmentIdType): never {
     throw new Error(`test session "${this.sessionId}": readAttachment is not stubbed — supply it on the fixture's session face`)
   }
+  /**
+   * Fail-loud stub; supply `resolveMarkdownImage` on the fixture's session face to exercise it.
+   * @returns never — always throws.
+   */
+  resolveMarkdownImage(): never {
+    throw new Error(`test session "${this.sessionId}": resolveMarkdownImage is not stubbed — supply it on the fixture's session face`)
+  }
+
 
   /**
    * Fail-loud stub; supply `updateQueue` on the fixture's session face to exercise it.

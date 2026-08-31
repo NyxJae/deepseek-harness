@@ -8,7 +8,7 @@ kind: "package-reference"
 
 ## 概述
 
-Conversation 组装的浏览器 Chat target。本包注册 Chat event definition 与 snapshot 构造、提供 `useChat`、渲染 transcript node 和详情，并拥有 Chat 专属 store、action、本地化与滚动位置恢复；历史图片 URL 通过 Conversation 持有的按会话缓存（`ctx.uiConversation.imageUrl`）解析。其中 Assistant 与 Turn Tail definition 会直接 fold packed Assistant 历史 run，不展开其成员。消息流尾部渲染 session 的本地提交回显（`SessionSnapshot.pendingSubmissions`），气泡与其最终的 durable user 节点一致；一旦某个 user/steering 节点或 queue occurrence 携带回显的 prompt `rpcId`，该回显即在同一渲染中隐藏，因此回显到 durable 的替换是原子的。
+Conversation 组装的浏览器 Chat target。本包注册 Chat event definition 与 snapshot 构造、提供 `useChat`、渲染 transcript node 和详情，并拥有 Chat 专属 store、action、本地化与滚动位置恢复；历史图片 URL 通过 Conversation 持有的按会话缓存（`ctx.uiConversation.imageUrl`）解析。已完成 Assistant 文本还可以通过 Session behavior API 解析本地 Markdown 图片调用实例；映射事件留在 Chat state 中，图片字节沿用现有耐久图片 renderer。Assistant 与 Turn Tail definition 会直接 fold packed Assistant 历史 run，不展开其成员。消息流尾部渲染 session 的本地提交回显（`SessionSnapshot.pendingSubmissions`），气泡与其最终的 durable user 节点一致；一旦某个 user/steering 节点或 queue occurrence 携带回显的 prompt `rpcId`，该回显即在同一渲染中隐藏，因此回显到 durable 的替换是原子的。
 
 ## 目录
 
@@ -54,7 +54,7 @@ Chat 会为每个非空的初始或恢复请求、显式消息序列起点或真
 ## 已知限制与暂缓事项
 
 <a id="known-limitations-and-deferred-work"></a>
-
+- **本地 Markdown 图片依赖 Host 策略**——`localMarkdownImages.mode` disabled 时，本地目标保持作者写入的 alt 文本，不发起网络请求，也不显示重试控件；Session Controller 启用该模式后，已完成的 Assistant 文本才请求本地图片映射，生成的附件映射会在源文件删除后和回放中保留，启用模式下被拒绝或失败的调用实例会保留可重试的行内控件。
 - **视图只反映已加载的 Session 窗口**——只有 Session Controller 加载前一页 event 后，更早的 transcript node 才会出现。轮次导航同样只表示已加载的 Turn；加载更早一页时，已有 Turn 刻度保持身份不变，完整的已加载集合在紧凑轨道中重新排布，不显示未加载历史占位。刻度默认相隔 10px，仅在已加载集合超过可用高度时压缩间距。
 
 

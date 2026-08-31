@@ -227,6 +227,21 @@ describe('SettingsPanel close paths', () => {
     fireEvent.keyDown(document, { key: 'Enter' })
     expect(screen.getByRole('dialog')).toBeTruthy()
   })
+  it('consumes Escape before an outer mobile drawer listener and restores focus only to its trigger', async () => {
+    const outerEscape = vi.fn()
+    document.addEventListener('keydown', outerEscape)
+    try {
+      mount()
+      const trigger = openPanel()
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(outerEscape).not.toHaveBeenCalled()
+      expect(screen.queryByRole('dialog')).toBeNull()
+      await vi.waitFor(() => { expect(document.activeElement).toBe(trigger) })
+    } finally {
+      document.removeEventListener('keydown', outerEscape)
+    }
+  })
+
 
   it('lands focus on the close button when the dialog opens', () => {
     mount()

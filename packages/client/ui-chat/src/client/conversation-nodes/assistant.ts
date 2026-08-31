@@ -1,11 +1,11 @@
 import type { Context } from '@deepseek-ai/cordis'
-import type { ChunkRowEvent } from '@deepseek-ai/dsh-api-session-controller/types'
+import type { ChunkRowEvent, SessionMarkdownImageMapping } from '@deepseek-ai/dsh-api-session-controller/types'
 import type {
   ConversationLocation, ConversationMatch, ConversationNodeContext, ConversationNodeDefinition,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-llm-retry/types'
 import { isAppendSurfaceEvent } from '@deepseek-ai/dsh-session/surface'
-import type { AssistantChatData } from '../contract/chat-nodes.ts'
+import type { AssistantChatData, AssistantMarkdownImage } from '../contract/chat-nodes.ts'
 import type { AssistantBlock, AssistantMessageNode } from '../contract/snapshot.ts'
 import { CHAT_SYNTHETIC_SEQ_OFFSETS, chatNode } from './common.ts'
 import {
@@ -37,12 +37,23 @@ interface AssistantState {
   readonly hidden: boolean
   readonly final: ConversationMatch | undefined
   readonly usage: unknown
+  readonly markdownImages: readonly AssistantMarkdownImage[]
 }
 
 function isChunkRunEvent(event: ConversationMatch['event']): event is ChunkRowEvent {
   return event.type === 'chunkrow/text-chunks'
     || event.type === 'chunkrow/reasoning-chunks'
     || event.type === 'chunkrow/tool-call-chunks'
+}
+
+function updateMarkdownImage(state: AssistantState, match: ConversationMatch): AssistantState {
+  if (match.event.type !== 'assistant/markdown-image') return state
+  const mapping: SessionMarkdownImageMapping = match.event.data
+  if (mapping.turn !== state.turn || mapping.step !== state.step) return state
+  if (state.markdownImages.some(item => item.textBlockIndex === mapping.textBlockIndex && item.imageIndex === mapping.imageIndex)) {
+    return state
+  }
+  return { ...state, markdownImages: [...state.markdownImages, mapping] }
 }
 
 function initialState(turn: number, step: number): AssistantState {
@@ -57,6 +68,7 @@ function initialState(turn: number, step: number): AssistantState {
     hidden: false,
     final: undefined,
     usage: undefined,
+    markdownImages: [],
   }
 }
 
@@ -92,6 +104,7 @@ function resetForRetry(state: AssistantState): AssistantState {
     ...initialState(state.turn, state.step),
     firstTokenTime: state.firstTokenTime,
     hidden: true,
+    markdownImages: state.markdownImages,
   }
 }
 
@@ -323,6 +336,11 @@ function fallbackState(context: ConversationNodeContext<AssistantState>): Assist
       }
       continue
     }
+    if (match.event.type === 'assistant/markdown-image') {
+      state ??= initialState(match.event.data.turn, match.event.data.step)
+      state = updateMarkdownImage(state, match)
+      continue
+    }
     if (match.event.type === 'llm/retry' && state !== undefined) {
       state = resetForRetry(state)
     }
@@ -359,6 +377,7 @@ function projectAssistant(context: ConversationNodeContext<AssistantState>): Ass
       blocks,
       time,
       ...state.usage === undefined ? {} : { usage: state.usage },
+      ...state.markdownImages.length === 0 ? {} : { markdownImages: state.markdownImages },
       ...settled === undefined ? {} : { finalNode: settled },
     },
   }
@@ -371,7 +390,8 @@ export const assistantDefinition: ConversationNodeDefinition<AssistantState> = {
   match: (event) => {
     if (event.type === 'step/start') return { id: `${event.data.turn}:${event.data.step}`, role: 'start' }
     if (event.type === 'assistant/chunk'
-      || (event.type === 'assistant/message' && isAppendSurfaceEvent(event))) {
+      || (event.type === 'assistant/message' && isAppendSurfaceEvent(event))
+      || event.type === 'assistant/markdown-image') {
       return { id: `${event.data.turn}:${event.data.step}`, role: 'update' }
     }
     if (isChunkRunEvent(event)) {
@@ -402,6 +422,7 @@ export const assistantDefinition: ConversationNodeDefinition<AssistantState> = {
         usage: match.event.data.usage,
       }
     }
+    if (match.event.type === 'assistant/markdown-image') return updateMarkdownImage(context.state, match)
     if (match.event.type === 'llm/retry') {
       return resetForRetry(context.state)
     }

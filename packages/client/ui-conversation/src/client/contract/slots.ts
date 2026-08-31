@@ -53,7 +53,11 @@ export interface ComposerAttachmentsOwnerProps {
  * local preview of a submission echo whose admission is still in flight.
  */
 export type MessageImageSource =
-  | { readonly attachment: ImageAttachmentRef }
+  | {
+    readonly attachment: ImageAttachmentRef
+    /** Authored Markdown alternative text, when the image came from Markdown. */
+    readonly alt?: string
+  }
   | {
     readonly preview: {
       /** Browser-owned preview URL (lifecycle stays with the submitter). */
@@ -65,7 +69,6 @@ export type MessageImageSource =
       readonly height?: number
     }
   }
-
 /** Durable image loader with an optional synchronous cache read. */
 export type MessageImageLoader = ((attachment: ImageAttachmentRef) => Promise<string>) & {
   peek?: (attachment: ImageAttachmentRef) => string | undefined
@@ -79,6 +82,8 @@ export interface MessageImagesOwnerProps {
   loadImage: MessageImageLoader
   /** Horizontal placement inside the owning record. */
   align: 'start' | 'end'
+  /** Render a single image as an inline control inside Markdown phrasing content. */
+  inline?: boolean
 }
 
 /** Slot-backed renderer used by Conversation targets without importing an attachment implementation. */

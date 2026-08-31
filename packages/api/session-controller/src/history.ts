@@ -32,10 +32,12 @@ export class SessionHistoryController {
   /**
    * @param ctx - Host context carrying Session query and projection services.
    * @param promote - starts ordinary Session activation after snapshot delivery.
+   * @param localMarkdownImages - whether ordinary Session snapshots expose local image resolution.
    */
   constructor(
     private readonly ctx: Context,
     private readonly promote: (observation: SessionObservation) => void,
+    private readonly localMarkdownImages = false,
   ) {
     ctx.effect(() => () => {
       for (const close of this.closeFollowers) close()
@@ -139,6 +141,7 @@ export class SessionHistoryController {
         projections: source.projections === undefined
           ? { asOfSeq: cursor, values: {} }
           : projectionBlock(source.projections),
+        localMarkdownImages: address.kind === 'session' && this.localMarkdownImages,
       }
       if (address.kind === 'session' && source.source === 'prepared') {
         const promotion = source.retain()

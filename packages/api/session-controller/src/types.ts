@@ -39,7 +39,30 @@ declare module '@deepseek-ai/dsh-session/types' {
      * assembly. Log-only: it never enters derived model history.
      */
     'model/selection': ModelSelection
+    /**
+     * Durable mapping for one finalized Assistant Markdown image. Log-only;
+     * it is never included in the model-visible message surface.
+     * @param turn - Assistant turn containing the message.
+     * @param step - Assistant step containing the message.
+     * @param messageId - finalized Assistant message identity.
+     * @param textBlockIndex - zero-based text content-block index.
+     * @param imageIndex - zero-based image index within that text block.
+     * @param destination - authored Markdown destination validated by the Host.
+     * @param attachment - normalized durable image reference.
+     */
+    'assistant/markdown-image': SessionMarkdownImageMapping
   }
+}
+
+/** One validated Assistant Markdown image occurrence and its durable attachment. */
+export interface SessionMarkdownImageMapping {
+  readonly turn: number
+  readonly step: number
+  readonly messageId: MessageId
+  readonly textBlockIndex: number
+  readonly imageIndex: number
+  readonly destination: string
+  readonly attachment: ImageAttachmentRef
 }
 
 /** Persisted hints used to summarize a cold Session. */
@@ -318,6 +341,17 @@ export interface SessionAttachmentRequest {
   readonly sessionId: SessionId
   readonly attachmentId: AttachmentIdType
 }
+/** Request to resolve one local Markdown image in a finalized Assistant message. */
+export interface SessionResolveMarkdownImageRequest {
+  readonly sessionId: SessionId
+  readonly messageId: MessageId
+  readonly textBlockIndex: number
+  readonly imageIndex: number
+  readonly destination: string
+}
+
+/** Result after a local Markdown image is durably admitted and mapped. */
+export interface SessionResolveMarkdownImageValue extends SessionMarkdownImageMapping {}
 
 /** Durable image read response value. */
 export interface SessionAttachmentValue {
@@ -444,6 +478,8 @@ export type SessionFollowFrame =
     readonly records: readonly SessionHistoryRecord[]
     readonly hasMore: boolean
     readonly projections: SessionProjectionBaseline
+    /** Whether this ordinary Session may resolve local Markdown images in this deployment. */
+    readonly localMarkdownImages?: boolean
   }
   | SessionEventEntry
 

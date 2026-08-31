@@ -709,6 +709,14 @@ inspect( sessionId: SessionId, signal?: AbortSignal, ): Promise<{ meta: SessionH
 @Remote('attachment') attachment(request: SessionAttachmentRequest): Promise<SessionAttachmentValue>
 
 /**
+ * Resolve one local Markdown image into a durable Session attachment.
+ * @param request - Session and message-local image occurrence.
+ * @param signal - cancellation for filesystem and attachment admission.
+ * @returns the durable mapping.
+ */
+@Remote('resolveMarkdownImage') resolveMarkdownImage( request: SessionResolveMarkdownImageRequest, signal: AbortSignal, ): Promise<SessionResolveMarkdownImageValue>
+
+/**
  * Mutate one still-pending queue occurrence on a live Agent.
  * @param request - Session, queue item, and requested mutation.
  * @returns acknowledgement that the queue mutation was applied.

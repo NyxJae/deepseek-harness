@@ -2,8 +2,10 @@
 // assembled through the Session API is seeded cold into the real web
 // composition, then a separate image origin proves that the browser receives
 // a real network image while local-path Markdown remains inert alt text.
+import { writeFile } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
 import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
@@ -28,6 +30,8 @@ import { newEnglishPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/markdown-images', import.meta.url))
 const UI_EXPECTED = fileURLToPath(new URL('./expected/markdown-images/ui.expected.md', import.meta.url))
+const ENABLED_UI_EXPECTED = fileURLToPath(new URL('./expected/markdown-images/ui-enabled.expected.md', import.meta.url))
+const LOCAL_OVERLAY = fileURLToPath(new URL('./markdown-images-local.overlay.yml', import.meta.url))
 const MODE = webSnapshotMode()
 const SEED_ID = 'markdown-images-web-e2e'
 const REMOTE_ALT = 'Remote test image'
@@ -123,7 +127,6 @@ function markdownImageFixture(remoteUrl: string): string {
     version: SESSION_FORMAT_VERSION,
     id: '{{sessionId}}',
     createdAt: 0,
-    cwd: '{{cwd}}',
   }
   return [
     JSON.stringify(header),
@@ -205,6 +208,47 @@ describe('web e2e: remote Markdown image rendering', () => {
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
-    await assertFixtureInventory(SNAPSHOT_DIR, ['ui.expected.md'])
+  }, 60_000)
+
+  it.skipIf(MODE === 'record')('resolves a local image in the enabled Host composition', async () => {
+    let localScaffold: WebScaffold | undefined
+    let localBrowser: Browser | undefined
+    try {
+      localScaffold = await launchWebScaffold({ extraOverlayPath: LOCAL_OVERLAY })
+      await writeFile(join(localScaffold.workspaceCwd, 'local-image.png'), PNG)
+      await seedSession(localScaffold, markdownImageFixture(imageOrigin.url), `${SEED_ID}-enabled`)
+      localBrowser = await chromium.launch()
+      const localPage = await newEnglishPage(localBrowser)
+      const localTripwire = watchConsole(localPage)
+      await localPage.goto(localScaffold.authenticatedUrl, { waitUntil: 'load' })
+      await localPage.waitForSelector('[class*="frame"]', { timeout: 30_000 })
+
+      const groupRow = localPage.locator('[role="treeitem"]').first()
+      await groupRow.waitFor({ timeout: 15_000 })
+      await groupRow.click()
+      const sessionRow = localPage.locator('[role="treeitem"]').nth(1)
+      await sessionRow.waitFor({ timeout: 10_000 })
+      await sessionRow.click()
+      await expect.poll(() => localPage.getByText('REMOTE_IMAGE_DONE', { exact: true }).count(), {
+        timeout: 15_000,
+      }).toBe(1)
+
+      const localImage = localPage.getByRole('img', { name: LOCAL_ALT })
+      await localImage.waitFor({ timeout: 10_000 })
+      await expect.poll(() => localImage.evaluate(element => (element as HTMLImageElement).naturalWidth), {
+        timeout: 10_000,
+      }).toBeGreaterThan(0)
+      expect(await localPage.getByText(LOCAL_ALT, { exact: true }).count()).toBe(0)
+
+      const snapshot = (await captureStableAria(localPage, '[class*="centerCol"]', localScaffold.workspaceCwd))
+        .split(`${SEED_ID}-enabled`).join('{{seededId}}')
+      await compareOrRefreshGolden(ENABLED_UI_EXPECTED, snapshot, MODE)
+      expect(localTripwire.pageErrors).toEqual([])
+      expect(localTripwire.warnings).toEqual([])
+      await assertFixtureInventory(SNAPSHOT_DIR, ['ui.expected.md', 'ui-enabled.expected.md'])
+    } finally {
+      await localBrowser?.close()
+      await localScaffold?.close()
+    }
   }, 60_000)
 })

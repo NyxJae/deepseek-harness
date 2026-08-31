@@ -17,6 +17,7 @@
     "src/file-references.ts",
     "src/history.ts",
     "src/list.ts",
+    "src/markdown-images.ts",
     "src/model-selection-projection.ts",
     "src/skill-catalog.ts"
   ],
@@ -34,6 +35,7 @@
     { "path": "../../llm/llm" },
     { "path": "../../util/deque" },
     { "path": "../../util/native-command" },
+    { "path": "../../fs/fs" },
     { "path": "../../preset/agent-presets" },
     { "path": "../../runtime-diagnostics/invariants" },
     { "path": "../../session/session-persistence" },

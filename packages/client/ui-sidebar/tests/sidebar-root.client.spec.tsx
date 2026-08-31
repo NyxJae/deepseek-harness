@@ -28,7 +28,7 @@ type AttentionSnapshot = Parameters<Parameters<SidebarRootComponentProps['useSes
 const noAttention: AttentionSnapshot = new Map()
 const useSessionPendingInteraction: SidebarRootComponentProps['useSessionPendingInteraction'] = selector => selector(noAttention)
 
-function mountShell({ collapsed = false, width = 300 }: { collapsed?: boolean; width?: number } = {}) {
+function mountShell({ collapsed = false, width = 300, mobile = false }: { collapsed?: boolean; width?: number; mobile?: boolean } = {}) {
   const startSession = vi.fn()
   const toggleSidebar = vi.fn()
   let regionOwner: SidebarSectionOwnerProps | undefined
@@ -36,10 +36,10 @@ function mountShell({ collapsed = false, width = 300 }: { collapsed?: boolean; w
   let footerActionOwner: SidebarFooterActionOwnerProps | undefined
   const brandMark = <span data-testid="custom-brand-mark">M</span>
   const brandName = <span data-testid="custom-brand-name">Custom Brand</span>
-  let current = { collapsed, width }
+  let current = { collapsed, width, mobile }
   const root = () => (
     <SidebarRoot
-      collapsed={current.collapsed} width={current.width}
+      collapsed={current.collapsed} width={current.width} mobile={current.mobile}
       useSessions={neverHook} useSessionPendingInteraction={useSessionPendingInteraction} useWorkspaces={neverHook}
       startSession={startSession} toggleSidebar={toggleSidebar} t={t}
       renderSlot={((
@@ -85,16 +85,17 @@ function mountShell({ collapsed = false, width = 300 }: { collapsed?: boolean; w
 }
 
 describe('SidebarRoot shell', () => {
-  it('routes New Session (capsule + wordmark) and the column toggle', () => {
+  it('keeps New Session separate from the expanded brand collapse control', () => {
     const b = mountShell()
     expect(screen.getByTestId('custom-brand-mark')).toBeTruthy()
     expect(screen.getByTestId('custom-brand-name')).toBeTruthy()
-    // Expanded, both the wordmark and the capsule start a session.
     const starters = screen.getAllByRole('button', { name: 'New session' })
-    expect(starters).toHaveLength(2)
-    for (const button of starters) fireEvent.click(button)
-    expect(b.startSession).toHaveBeenCalledTimes(2)
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    expect(starters).toHaveLength(1)
+    fireEvent.click(starters[0]!)
+    expect(b.startSession).toHaveBeenCalledOnce()
+    const collapsers = screen.getAllByRole('button', { name: 'Collapse sidebar' })
+    expect(collapsers).toHaveLength(2)
+    fireEvent.click(collapsers[0]!)
     expect(b.toggleSidebar).toHaveBeenCalledOnce()
   })
 
@@ -103,7 +104,7 @@ describe('SidebarRoot shell', () => {
     vi.stubEnv('DSH_CLIENT_GIT_DIRTY', 'true')
     vi.stubEnv('DSH_CLIENT_VERSION', '1.2.3-rc.4')
     const { container } = render(<SidebarRoot
-      collapsed={false} width={300}
+      collapsed={false} width={300} mobile={false}
       useSessions={neverHook} useSessionPendingInteraction={useSessionPendingInteraction} useWorkspaces={neverHook}
       startSession={vi.fn()} toggleSidebar={vi.fn()} t={t}
       renderSlot={((_key: string, _owner: unknown, options?: { fallback?: ReactNode }) =>
@@ -121,7 +122,7 @@ describe('SidebarRoot shell', () => {
   ])('omits unavailable build-version suffixes from %j', (environment, expected) => {
     for (const [name, value] of Object.entries(environment)) vi.stubEnv(name, value)
     render(<SidebarRoot
-      collapsed={false} width={300}
+      collapsed={false} width={300} mobile={false}
       useSessions={neverHook} useSessionPendingInteraction={useSessionPendingInteraction} useWorkspaces={neverHook}
       startSession={vi.fn()} toggleSidebar={vi.fn()} t={t}
       renderSlot={((_key: string, _owner: unknown, options?: { fallback?: ReactNode }) =>
@@ -134,7 +135,7 @@ describe('SidebarRoot shell', () => {
 
   it('retains the local-build fallback without complete build metadata', () => {
     render(<SidebarRoot
-      collapsed={false} width={300}
+      collapsed={false} width={300} mobile={false}
       useSessions={neverHook} useSessionPendingInteraction={useSessionPendingInteraction} useWorkspaces={neverHook}
       startSession={vi.fn()} toggleSidebar={vi.fn()} t={t}
       renderSlot={((_key: string, _owner: unknown, options?: { fallback?: ReactNode }) =>
@@ -174,5 +175,58 @@ describe('SidebarRoot shell', () => {
     const b = mountShell({ collapsed: true })
     expect(b.regionOwner().wide).toBe(false)
     expect(screen.getByRole('button', { name: 'Open sidebar' })).toBeTruthy()
+  })
+
+  it('keeps the mobile browser mounted behind a branded trigger and backdrop drawer', () => {
+    const b = mountShell({ collapsed: true, mobile: true })
+    const trigger = screen.getByRole('button', { name: 'Open sidebar' })
+    expect(trigger).toBeTruthy()
+    expect(screen.getByTestId('region')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Collapse sidebar' })).toBeNull()
+
+    b.rerender({ collapsed: false })
+    const drawerClose = screen.getAllByRole('button', { name: 'Collapse sidebar' })[1]!
+    expect(document.activeElement).toBe(drawerClose)
+    expect(screen.getAllByRole('button', { name: 'Collapse sidebar' })).toHaveLength(3)
+    expect(screen.getByTestId('region')).toBeTruthy()
+    fireEvent.click(drawerClose)
+    expect(b.startSession).not.toHaveBeenCalled()
+    expect(b.toggleSidebar).toHaveBeenCalledOnce()
+
+    b.rerender({ collapsed: true })
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open sidebar' }))
+  })
+
+  it('closes the mobile drawer from Escape and restores focus', () => {
+    const b = mountShell({ mobile: true })
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(b.toggleSidebar).toHaveBeenCalledOnce()
+    b.rerender({ collapsed: true })
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open sidebar' }))
+  })
+
+  it('preserves focus when an already-open mobile drawer is mounted', () => {
+    const outside = document.createElement('button')
+    document.body.append(outside)
+    outside.focus()
+    try {
+      mountShell({ mobile: true })
+      expect(document.activeElement).toBe(outside)
+    } finally {
+      outside.remove()
+    }
+  })
+
+  it('preserves focus when a responsive change reveals an open mobile drawer', () => {
+    const outside = document.createElement('button')
+    document.body.append(outside)
+    outside.focus()
+    try {
+      const b = mountShell()
+      b.rerender({ mobile: true })
+      expect(document.activeElement).toBe(outside)
+    } finally {
+      outside.remove()
+    }
   })
 })

@@ -120,6 +120,15 @@ export interface MarkdownFileMentions {
    */
   resolve(value: string): { open: () => void; label: string; title: string } | undefined
 }
+/** One settled Markdown image node that an owner may replace with a presentation component. */
+export interface MarkdownImageResolver {
+  /**
+   * Resolve one parsed image before the normal HTTP(S)/alt fallback.
+   * @param input - authored destination, alt text, and document-order index.
+   * @returns replacement React content, or `undefined` to keep normal rendering.
+   */
+  resolve(input: { readonly url: string; readonly alt: string; readonly index: number }): ReactNode | undefined
+}
 
 /**
  * One render pass's state: immutable options and targets plus the footnote
@@ -134,6 +143,10 @@ export interface MarkdownRenderContext {
   readonly inBlockquote?: boolean
   /** Inline-code file mentions; absent wherever no opener vocabulary exists. */
   readonly fileMentions: MarkdownFileMentions | undefined
+  /** Settled image replacement callback; absent in streaming renders. */
+  readonly imageResolver?: MarkdownImageResolver
+  /** Shared image counter for nested render contexts. */
+  readonly nextImageIndex: () => number
   /** Inside an anchor's children: interactive mentions must not nest there. */
   readonly inLink?: boolean
   /** Reference targets visible to this pass. */
@@ -291,7 +304,7 @@ function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderConte
     case 'linkReference':
       return renderLinkReference(node, key, context)
     case 'image':
-      return renderImage(node.url, node.alt ?? '', key)
+      return renderImage(node.url, node.alt ?? '', key, context)
     case 'imageReference':
       return renderImageReference(node, key, context)
     case 'footnoteReference':
@@ -501,7 +514,10 @@ function inlineCodeHttpUrl(value: string): string | undefined {
   }
 }
 
-function renderImage(url: string, alt: string, key: Key): ReactNode {
+function renderImage(url: string, alt: string, key: Key, context: MarkdownRenderContext): ReactNode {
+  const index = context.nextImageIndex()
+  const replacement = context.inLink === true ? undefined : context.imageResolver?.resolve({ url, alt, index })
+  if (replacement !== undefined) return <Fragment key={key}>{replacement}</Fragment>
   const imageSrc = remoteImageUrl(sanitizeUrl(normalizeUri(url)))
   if (imageSrc === undefined) {
     return <span key={key} className={css.imageAlt}>{alt}</span>
@@ -548,8 +564,11 @@ function renderImageReference(
   context: MarkdownRenderContext,
 ): ReactNode {
   const definition = context.targets.definitions.get(node.identifier.toUpperCase())
-  if (definition === undefined) return `![${node.alt ?? ''}${referenceSuffix(node)}`
-  return renderImage(definition.url, node.alt ?? '', key)
+  if (definition === undefined) {
+    context.nextImageIndex()
+    return `![${node.alt ?? ''}${referenceSuffix(node)}`
+  }
+  return renderImage(definition.url, node.alt ?? '', key, context)
 }
 
 function renderFootnoteReference(

@@ -16,6 +16,13 @@
 /** Resolved widths for one frame; center may drop below CENTER_MIN only at the final fallback. */
 export interface Columns { sidebar: number; center: number; details: number }
 
+/** Options that change how panel preferences participate in the grid solve. */
+export interface ComputeColumnsOptions {
+  /** Render the sidebar outside the grid so it consumes no center-column width. */
+  sidebarOverlay?: boolean
+}
+
+
 // Contract-frozen geometry: the three-column concession chain's fixed points.
 /** Center column floor; only the final fallback may go below it. */
 export const CENTER_MIN = 640
@@ -57,11 +64,20 @@ export function clampWidth(px: number, min: number, max: number): number {
  * @param viewport - available frame width in px.
  * @param sidebar - sidebar width preference in px (0 = closed).
  * @param details - details width preference in px (0 = closed).
- * @returns resolved widths; details 0 means visually closed (never unmounted), while a closed sidebar keeps its compact rail.
+ * @param options - whether the sidebar is rendered as an overlay outside the grid.
+ * @returns resolved widths; details 0 means visually closed (never unmounted), while an overlay sidebar consumes zero grid width.
  */
-export function computeColumns(viewport: number, sidebar: number, details: number): Columns {
-  // The sidebar is fixed at its preference (or the rail) — it never concedes.
-  const s = sidebar === 0 ? SIDEBAR_COLLAPSED : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
+export function computeColumns(
+  viewport: number,
+  sidebar: number,
+  details: number,
+  options: ComputeColumnsOptions = {},
+): Columns {
+  // An overlay sidebar does not reduce the center track; ordinary closed
+  // sidebars retain the fixed rail width.
+  const s = options.sidebarOverlay
+    ? 0
+    : sidebar === 0 ? SIDEBAR_COLLAPSED : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
   const d0 = details === 0 ? 0 : clampWidth(details, DETAILS_MIN, DETAILS_MAX)
 
   // Step 1: everything fits at preferred widths.

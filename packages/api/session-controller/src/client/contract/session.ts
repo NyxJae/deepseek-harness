@@ -12,7 +12,13 @@ import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type { PromptContentPart, QueueAction, SessionRequestId } from '../../types.ts'
+import type {
+  PromptContentPart,
+  QueueAction,
+  SessionRequestId,
+  SessionResolveMarkdownImageRequest,
+  SessionResolveMarkdownImageValue,
+} from '../../types.ts'
 import type { PendingSubmissionImage, SessionSnapshot } from './snapshot.ts'
 
 /**
@@ -92,6 +98,18 @@ export interface ISession {
   readAttachment(
     attachmentId: AttachmentIdType,
   ): Promise<RemoteResult<{ attachment: ImageAttachmentRef; data: Uint8Array }>>
+  /** Whether the current opening snapshot enables local Markdown image resolution. */
+  canResolveMarkdownImage?: () => boolean
+  /**
+   * Resolve one local Markdown image occurrence and commit its durable mapping.
+   * @param input - message-local occurrence and authored destination.
+   * @param signal - cancellation for Host path and attachment work.
+   * @returns the authenticated durable mapping result.
+   */
+  resolveMarkdownImage(
+    input: Omit<SessionResolveMarkdownImageRequest, 'sessionId'>,
+    signal?: AbortSignal,
+  ): Promise<RemoteResult<SessionResolveMarkdownImageValue>>
   /**
    * Apply one edit, remove, or strict steer action to a still-pending queue occurrence.
    * @param itemId - agent-owned inbox occurrence identity.

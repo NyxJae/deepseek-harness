@@ -330,6 +330,7 @@ function panelProps(data: WorkflowRunChatData, sessions = listState(), openSessi
     inspectCall: () => {},
     forkAt: () => {},
     renderMessageImages: () => null,
+    resolveMarkdownImage: () => Promise.reject(new Error('unused fake Session operation')),
     fileMentions: () => undefined,
     openSession,
     t: makeTranslate(zh),

@@ -33,7 +33,7 @@ A draft image shows as a fixed 64px thumbnail in one horizontally scrolling row;
 
 ### Message images and the lightbox
 
-A message's lone image renders at 240px on its longer edge (aspect clamped to [0.25, 4], never upscaled); images among several render as fixed 64px squares. A loaded image opens the document-level lightbox on click; a failed load shows a retry control instead. The lightbox closes on Escape, a mask press, or its close control, and restores focus to its opener.
+A message's lone image renders at 240px on its longer edge (aspect clamped to [0.25, 4], never upscaled); images among several render as fixed 64px squares. A loaded image opens the document-level lightbox on click; a failed load shows a retry control instead. The lightbox locks background scrolling, traps Tab focus, and supports fit/reset, zoom controls, cursor-centered wheel zoom, pointer drag, touch pinch, double-click zoom, `+`/`-`/`0`, Escape, and opener-focus restoration.
 
 ### Drop overlay
 
@@ -86,12 +86,10 @@ None; this package neither assembles nor sends a provider request.
 
 <a id="known-limitations-and-deferred-work"></a>
 
-
 These limits define the current attachment surface. They are package constraints, not a general image-viewer comparison or a task backlog.
 
 - **Images only** — non-image files have no rail card or history renderer yet; DeepSeek Chat-style file cards and upload progress wait until the composer accepts non-image attachments.
-- **No zoom or download in the lightbox** — the preview renders the original at fit-to-viewport size only.
-- **The lightbox does not trap focus** — it sets `aria-modal` and restores focus on close, but Tab can reach the page behind it.
+- **Source ownership stays with the Session Controller** — this package only presents durable references and loading/error states. Local Markdown image admission, path authorization, and replay durability belong to `api-session-controller` and `ui-chat`.
 
 <a id="dev-note"></a>
 ### Dev Note

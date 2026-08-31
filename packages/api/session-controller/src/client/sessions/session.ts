@@ -15,6 +15,8 @@ import type {
   SessionControlFrame,
   SessionQueuedItem,
   SessionRequestId,
+  SessionResolveMarkdownImageRequest,
+  SessionResolveMarkdownImageValue,
 } from '../../types.ts'
 import type {
   BeginSubmissionInput, PendingSubmissionRetirement, SessionFace, SubmissionHandle,
@@ -83,6 +85,7 @@ export class Session implements SessionFace {
   private running = false
   private address: SubagentAddress | undefined
   private parentAvailable: boolean | undefined
+  private localMarkdownImages = false
   /**
    * Sticky send marker, private input of the composerPhase derivation: set
    * synchronously before prompt()'s first await, never reset — the blank →
@@ -278,6 +281,23 @@ export class Session implements SessionFace {
     const data = Uint8Array.from(binary, char => char.charCodeAt(0))
     return { ok: true, value: { attachment: result.value.attachment, data } }
   }
+  /** Whether the latest opening snapshot enables local Markdown image resolution. */
+  canResolveMarkdownImage(): boolean {
+    return this.localMarkdownImages
+  }
+
+  /**
+   * Resolve one local Markdown image occurrence and commit its durable mapping.
+   * @param input - message-local occurrence and authored destination.
+   * @param signal - cancellation for Host path and attachment work.
+   * @returns the authenticated durable mapping result.
+   */
+  async resolveMarkdownImage(
+    input: Omit<SessionResolveMarkdownImageRequest, 'sessionId'>,
+    signal?: AbortSignal,
+  ): Promise<RemoteResult<SessionResolveMarkdownImageValue>> {
+    return this.remote.session.resolveMarkdownImage({ ...input, sessionId: this.sessionId }, signal)
+  }
 
   /** Apply one operation to a still-pending queue occurrence. */
   async updateQueue(itemId: MessageId, action: QueueAction): Promise<RemoteResult<{ accepted: true }>> {
@@ -378,6 +398,7 @@ export class Session implements SessionFace {
     this.openPromise = null
     this.openState = 'cold'
     this.openError = null
+    this.localMarkdownImages = false
     this.baseSeq = 0
     this.notifier.markDirty()
     await this.open()
@@ -550,7 +571,12 @@ export class Session implements SessionFace {
   private acceptEventChange(change: SessionJournalChange): void {
     switch (change.type) {
       case 'replace':
-        this.installWindow(change.entries, change.hasMore, change.page.projections)
+        this.installWindow(
+          change.entries,
+          change.hasMore,
+          change.page.projections,
+          change.page.localMarkdownImages ?? false,
+        )
         return
       case 'prepend':
         this.prependWindow(change.entries, change.hasMore)
@@ -561,9 +587,15 @@ export class Session implements SessionFace {
   }
 
   /** Replace the complete contiguous window and apply page-owned projection metadata. */
-  private installWindow(entries: readonly SessionEventLikeEntry[], hasMore: boolean, projections?: ProjectionsBaseline): void {
+  private installWindow(
+    entries: readonly SessionEventLikeEntry[],
+    hasMore: boolean,
+    projections?: ProjectionsBaseline,
+    localMarkdownImages = false,
+  ): void {
     this.baseSeq = entries[0]?.event.seq ?? 0
     this.hasMore = hasMore
+    this.localMarkdownImages = localMarkdownImages
     if (entries.some(entry => entry.event.type === 'turn/start')) this.firstPromptPendingTurn = false
     if (projections !== undefined) this.projections.seed(projections)
     this.eventSource.replace(entries, hasMore)

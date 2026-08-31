@@ -64,6 +64,7 @@
 .rowHead {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
@@ -71,10 +72,17 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
 }
 
 .rowName {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 14px;
   line-height: 22px;
   font-weight: 500;
@@ -116,6 +124,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  flex: 0 0 auto;
   margin-left: auto;
 }
 
@@ -137,6 +146,7 @@
   font: inherit;
   font-size: 14px;
   line-height: 22px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -179,6 +189,7 @@
   font: inherit;
   font-size: 14px;
   line-height: 22px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -277,7 +288,7 @@
   font: inherit;
   font-size: 12px;
   line-height: 18px;
-  cursor: pointer;
+  white-space: nowrap;
 }
 
 .linkButton:hover:not(:disabled) {
@@ -446,6 +457,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
 }
 

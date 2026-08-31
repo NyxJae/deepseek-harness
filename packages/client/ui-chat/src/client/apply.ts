@@ -129,6 +129,8 @@ export function apply(ctx: Context): void {
             (attachment: ImageAttachmentRef) => ctx.uiConversation.imageUrl(sessionId, attachment),
             { peek: (attachment: ImageAttachmentRef) => ctx.uiConversation.peekImageUrl(sessionId, attachment) },
           ),
+          resolveMarkdownImage: session.resolveMarkdownImage.bind(session),
+          canResolveMarkdownImage: session.canResolveMarkdownImage?.bind(session),
           chatScroll: {
             save: (position) => {
               if (position === null) chatScrollPositions.delete(sessionId)

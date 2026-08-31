@@ -40,8 +40,11 @@ The Session object also carries local submission echoes: `session.beginSubmissio
 |---|---:|---|
 | `coldBlankProbeMaxBytes` | `1,024` | Maximum physical size of a cold Session artifact eligible for blankness verification; `0` disables probes |
 | `nativeOpen` | platform-detected | Whether Session workspace paths can be handed to a native desktop opener |
+| `localMarkdownImages.mode` | `disabled` | Whether finalized Assistant Markdown may resolve local image paths through durable Session attachments; `workspaces` limits reads to registered Workspace roots and `host` permits any readable supported image |
 
 The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-api-session-controller) is the exhaustive source for accepted fields and their JSDoc.
+
+Finalized Assistant Markdown local images use `localMarkdownImages.mode`. The Host validates the Session message occurrence, reads the source through `ctx.fs`, stores normalized bytes through the attachment service, and appends a log-only mapping. Chat then uses the same authenticated attachment read path as structured image blocks, so replay does not require the source file. The setting is disabled by default.
 
 -----
 
@@ -61,6 +64,7 @@ No direct effect; model requests remain owned by the Agent and LLM packages.
 - Control baselines represent process-local state and therefore cannot reconstruct jobs after a Host restart.
 - A failed follow resumption remains visible to the caller instead of retrying indefinitely.
 - File-reference completion uses the shared Agent lookup and can resume a cold Session; the `skills/list` catalog is the non-activating alternative for skill metadata.
+- Local Markdown image resolution is disabled unless `localMarkdownImages.mode` is enabled; `host` intentionally grants the active filesystem provider's readable-image scope, while `workspaces` is the narrower registered-root option.
 
 
 <a id="dev-note"></a>
@@ -70,5 +74,7 @@ No direct effect; model requests remain owned by the Agent and LLM packages.
 <summary>Working context for maintainers — click to expand</summary>
 
 None.
+
+Local Markdown image mappings are log-only and do not change model-visible requests or token accounting.
 
 </details>

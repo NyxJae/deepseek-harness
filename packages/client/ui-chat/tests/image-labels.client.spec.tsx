@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, waitFor } from '@testing-library/react'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
-import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
+import { RemoteError, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import type { RenderMessageImages } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { AssistantMarkdown } from '../src/client/chat/AssistantMarkdown.tsx'
+import { AssistantMarkdown, type AssistantMarkdownProps } from '../src/client/chat/AssistantMarkdown.tsx'
 import { zh } from '../src/client/locale.ts'
 
 afterEach(cleanup)
@@ -95,5 +95,26 @@ describe('assistant image slot handoff', () => {
     const after = view.getByText('after')
     expect(before.compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
     expect(image.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+  })
+  it('keeps authored alt text when local Markdown images are disabled', async () => {
+    const resolveMarkdownImage = vi.fn<NonNullable<AssistantMarkdownProps['resolveMarkdownImage']>>(() => Promise.resolve({
+      ok: false,
+      error: new RemoteError('session/attachment-invalid', 'Local Markdown images are disabled.', {
+        reason: 'LOCAL_MARKDOWN_IMAGES_DISABLED',
+      }),
+    }))
+    const view = render(
+      <AssistantMarkdown
+        t={t}
+        blocks={[{ kind: 'text', text: '![local alt](./local-image.png)' }]}
+        streaming={false}
+        messageId={'assistant-message' as never}
+        renderMessageImages={imageRenderer([])}
+        resolveMarkdownImage={resolveMarkdownImage}
+      />,
+    )
+    await waitFor(() => { expect(view.getByText('local alt')).toBeTruthy() })
+    expect(view.queryByRole('img')).toBeNull()
+    expect(view.queryByRole('button')).toBeNull()
   })
 })
