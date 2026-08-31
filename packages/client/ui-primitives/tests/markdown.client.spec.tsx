@@ -69,6 +69,20 @@ describe('MarkdownText', () => {
     expect(screen.getByRole('link', { name: 'https://deepseek.com' })).toBeTruthy()
   })
 
+  it('replaces settled image nodes through the owner resolver in document order', () => {
+    const { container } = render(
+      <MarkdownText
+        text={'![first](first.png)\n\n![second][second]\n\n[second]: second.webp'}
+        imageResolver={{
+          resolve: ({ url, index }) => <button type="button" data-image-index={index}>{url}</button>,
+        }}
+      />,
+    )
+    const replacements = [...container.querySelectorAll('button[data-image-index]')]
+    expect(replacements.map(button => button.textContent)).toEqual(['first.png', 'second.webp'])
+    expect(replacements.map(button => button.getAttribute('data-image-index'))).toEqual(['0', '1'])
+  })
+
   it('closes punctuation-terminated strong emphasis before adjacent CJK text', () => {
     const cases = [
       ['**注意：**内容', '注意：'],

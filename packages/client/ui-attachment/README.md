@@ -32,6 +32,7 @@ Mount this plugin alongside [`ui-conversation`](../ui-conversation/README.md); i
 A draft image shows as a fixed 64px thumbnail in one horizontally scrolling row; edge arrows page the rail when overflow hides items, and the scrollbar stays hidden. A newly added item is revealed at the rail's end, removal keeps the scroll position, and a single click opens the original through the owner's `onOpen`.
 
 ### Message images and the lightbox
+
 A message's lone image renders at 240px on its longer edge (aspect clamped to [0.25, 4], never upscaled); images among several render as fixed 64px squares. A loaded image opens the document-level lightbox on click; a failed load shows a retry control instead. The lightbox locks background scrolling, traps Tab focus, and supports fit/reset, zoom controls, cursor-centered wheel zoom, pointer drag, touch pinch, double-click zoom, `+`/`-`/`0`, Escape, and opener-focus restoration.
 
 ### Drop overlay

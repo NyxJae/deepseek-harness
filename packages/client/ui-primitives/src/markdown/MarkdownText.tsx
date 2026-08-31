@@ -19,22 +19,11 @@ import {
   collectReferenceTargets, createReferenceTargets, renderBlocks, renderFootnoteSection,
   wrapBlockChildren,
 } from './render.tsx'
-import type {
-  MarkdownFileMentions,
-  MarkdownImageResolver,
-  MarkdownLabels,
-  MarkdownRenderContext,
-  ReferenceTargets,
-} from './render.tsx'
+import type { MarkdownFileMentions, MarkdownImageResolver, MarkdownLabels, MarkdownRenderContext, ReferenceTargets } from './render.tsx'
 import 'katex/dist/katex.min.css'
 import css from './MarkdownText.module.css'
 
-export type {
-  MarkdownCodeLabels,
-  MarkdownFileMentions,
-  MarkdownImageResolver,
-  MarkdownLabels,
-} from './render.tsx'
+export type { MarkdownCodeLabels, MarkdownFileMentions, MarkdownImageResolver, MarkdownLabels } from './render.tsx'
 
 /** One settled full render: parse with math, resolve references, append the footnote section. */
 function renderSettled(

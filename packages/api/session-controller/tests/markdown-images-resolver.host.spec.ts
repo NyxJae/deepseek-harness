@@ -55,12 +55,13 @@ function resolverHarness(
   contains = true,
 ) {
   const ctx = new Context()
-  ctx.provide('fs', {
+  const fs = {
     resolve: vi.fn(async () => ({ targetKey: 'opaque-target', displayPath: 'C:\\workspace\\picture.png' })),
     stat: vi.fn(async () => ({ type: 'file', size: 4 })),
     contains: vi.fn(() => contains),
     readBytes: vi.fn(async () => Uint8Array.of(1, 2, 3, 4)),
-  } as never)
+  }
+  ctx.provide('fs', fs as never)
   ctx.provide('attachments', {
     imageLimits: { maxImageBytes: 20, maxImagesPerMessage: 20, maxMessageImageBytes: 200, maxImagePixels: 64_000_000, maxImageDimension: 8192, mediaTypes: ['image/png'] },
     saveImage: vi.fn(async () => IMAGE),
@@ -72,7 +73,7 @@ function resolverHarness(
   const resolveAgent = vi.fn(async () => ({ agent }))
   const agents = { resolveAgent } as unknown as ApiSessionAgentController
   const resolver = new SessionMarkdownImageResolver(ctx, agents, { mode })
-  return { ctx, resolver, agents, resolveAgent }
+  return { ctx, resolver, agents, resolveAgent, fs }
 }
 
 const request = (session: Session, messageId: MessageId, destination = 'picture.png') => ({
@@ -100,13 +101,13 @@ describe('SessionMarkdownImageResolver', () => {
     const outside = assistantSession('![picture](picture.png)')
     const outsideHarness = resolverHarness(outside.session, 'workspaces', false)
     await expect(outsideHarness.resolver.resolve(request(outside.session, outside.messageId), new AbortController().signal))
-      .rejects.toMatchObject({ failure: { details: { reason: 'IMAGE_OUTSIDE_WORKSPACE' } } })
+      .rejects.toMatchObject({ code: 'session/attachment-invalid', details: { reason: 'IMAGE_OUTSIDE_WORKSPACE' } })
     await outsideHarness.ctx.fiber.dispose()
 
     const disabled = assistantSession('![picture](picture.png)')
     const disabledHarness = resolverHarness(disabled.session, 'disabled')
     await expect(disabledHarness.resolver.resolve(request(disabled.session, disabled.messageId), new AbortController().signal))
-      .rejects.toMatchObject({ failure: { details: { reason: 'LOCAL_MARKDOWN_IMAGES_DISABLED' } } })
+      .rejects.toMatchObject({ code: 'session/attachment-invalid', details: { reason: 'LOCAL_MARKDOWN_IMAGES_DISABLED' } })
     await disabledHarness.ctx.fiber.dispose()
   })
 
@@ -123,12 +124,60 @@ describe('SessionMarkdownImageResolver', () => {
     const append = vi.spyOn(retrySession.session, 'append')
       .mockImplementationOnce(() => { throw new Error('append unavailable') })
     await expect(retryHarness.resolver.resolve(request(retrySession.session, retrySession.messageId), new AbortController().signal))
-      .rejects.toThrow('Unable to read local image: append unavailable')
+      .rejects.toMatchObject({ code: 'gateway/internal', details: {} })
     await expect(retryHarness.resolver.resolve(request(retrySession.session, retrySession.messageId), new AbortController().signal))
       .resolves.toMatchObject({ attachment: IMAGE })
     expect(append).toHaveBeenCalledTimes(2)
     await ctx.fiber.dispose()
     await retryHarness.ctx.fiber.dispose()
+  })
+
+  it('does not share concurrent requests with different destinations', async () => {
+    const { session, messageId } = assistantSession('![picture](picture.png)')
+    const { ctx, resolver, resolveAgent } = resolverHarness(session)
+    const first = resolver.resolve(request(session, messageId), new AbortController().signal)
+    const second = resolver.resolve(request(session, messageId, 'other.png'), new AbortController().signal)
+    await expect(first).resolves.toMatchObject({ attachment: IMAGE })
+    await expect(second).rejects.toMatchObject({ code: 'gateway/bad-request', details: {} })
+    expect(resolveAgent).toHaveBeenCalledTimes(2)
+    await ctx.fiber.dispose()
+  })
+  it('does not cancel a shared admission while another waiter remains', async () => {
+    const { session, messageId } = assistantSession('![picture](picture.png)')
+    const { ctx, resolver, resolveAgent } = resolverHarness(session)
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    resolveAgent.mockImplementation(() => gate.then(() => ({ agent: { session } })))
+    const firstController = new AbortController()
+    const secondController = new AbortController()
+    const first = resolver.resolve(request(session, messageId), firstController.signal)
+    const second = resolver.resolve(request(session, messageId), secondController.signal)
+    firstController.abort()
+    await expect(first).rejects.toMatchObject({ code: 'gateway/cancelled' })
+    release()
+    await expect(second).resolves.toMatchObject({ attachment: IMAGE })
+    expect(resolveAgent).toHaveBeenCalledTimes(1)
+    await ctx.fiber.dispose()
+  })
+
+
+  it('rejects protocol-relative destinations before filesystem access', async () => {
+    const destination = '//server/picture.png'
+    const { session, messageId } = assistantSession(`![picture](${destination})`)
+    const { ctx, resolver, fs } = resolverHarness(session)
+    await expect(resolver.resolve(request(session, messageId, destination), new AbortController().signal))
+      .rejects.toMatchObject({ code: 'gateway/bad-request', details: {} })
+    expect(fs.resolve).not.toHaveBeenCalled()
+    await ctx.fiber.dispose()
+  })
+
+  it('maps unknown append failures to gateway internal', async () => {
+    const { session, messageId } = assistantSession('![picture](picture.png)')
+    const { ctx, resolver } = resolverHarness(session)
+    vi.spyOn(session, 'append').mockImplementationOnce(() => { throw new Error('append unavailable') })
+    await expect(resolver.resolve(request(session, messageId), new AbortController().signal))
+      .rejects.toMatchObject({ code: 'gateway/internal', details: {} })
+    await ctx.fiber.dispose()
   })
 
 

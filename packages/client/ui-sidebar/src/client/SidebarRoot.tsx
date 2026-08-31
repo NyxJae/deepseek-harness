@@ -1,12 +1,11 @@
 /**
- * Sidebar shell: column geometry only. Desktop collapse is a slide plus
- * crossfade: content freezes at its expanded width (inline style) and fades
- * out in place while the AppFrame grid track clips it. At settle the wide-only
- * content unmounts and the four upper controls enter the 56px rail from the
- * same horizontal offset. On narrow frames, AppFrame gives the shell a
- * zero-width overlay track; the shell keeps the browsing entry mounted, shows
- * a branded trigger while closed, and renders the open state as a fixed drawer
- * with a dismissible backdrop. The workspace/session browsing region between
+ * Sidebar shell: column geometry only. Collapse is a slide plus crossfade:
+ * content freezes at its expanded width (inline style) and fades out in place
+ * while the sliding column (AppFrame grid tracks) clips it — nothing reflows
+ * mid-slide. At settle the wide-only content unmounts and the four upper
+ * controls enter the 56px rail from the same horizontal offset (one icon each,
+ * same top-down order) on one fade that ends with the slide. The bottom-pinned
+ * settings control only fades. The workspace/session browsing region between
  * the New Session button and the foot is the `sidebar.workspaces` registrant's,
  * and the foot holds `sidebar.settings` plus `sidebar.footer.action`; the shell
  * hands them the wide flag (plus an expand request callback for the browser).
@@ -74,7 +73,7 @@ export function SidebarRoot({
   useEffect(() => {
     if (!mobile || collapsed) return
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return
+      if (event.key !== 'Escape' || event.defaultPrevented) return
       event.preventDefault()
       toggleSidebar()
     }
@@ -166,6 +165,7 @@ export function SidebarRoot({
     }
   }, [mobile, mobileClosed])
 
+
   return (
     <>
       {mobileClosed && (
@@ -193,9 +193,13 @@ export function SidebarRoot({
         ref={column}
         aria-hidden={mobileClosed || undefined}
         className={clsx(
-          css.root, mobile && css.mobileRoot, mobileClosed && css.mobileClosed,
-          !wide && css.collapsed, !wide && everWide.current && css.railIn,
-          collapsed && wide && css.fading, !pointerInside && css.quietBars,
+          css.root,
+          mobile && css.mobileRoot,
+          mobileClosed && css.mobileClosed,
+          !wide && css.collapsed,
+          !wide && everWide.current && css.railIn,
+          collapsed && wide && css.fading,
+          !pointerInside && css.quietBars,
         )}
         style={mobileClosed
           ? { width: 0 }
@@ -207,8 +211,8 @@ export function SidebarRoot({
         onPointerLeave={() => { armLinger() }}
       >
         <div className={css.logoRow}>
-          {/* The brand row is the expanded sidebar's close control in both
-              desktop and mobile modes; New Session remains the separate row. */}
+          {/* Expanded, the brand doubles as a New Session shortcut; the
+              collapsed rail's logo is the expand toggle below instead. */}
           {wide && (
             <button
               type="button"

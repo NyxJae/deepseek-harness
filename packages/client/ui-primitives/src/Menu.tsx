@@ -51,6 +51,7 @@ function menuItems(list: HTMLDivElement | null): HTMLButtonElement[] {
     ? []
     : [...list.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')]
 }
+
 /**
  * Render an anchored dropdown menu.
  * @param props.open - whether the list is showing (owner-controlled).
@@ -212,6 +213,7 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
   useEffect(() => {
     if (!open) cancelClose()
   }, [open, cancelClose])
+
   const onListKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
     if (event.key === 'Escape') {
       event.preventDefault()
@@ -313,10 +315,10 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
       className={clsx(css.list, dense && css.denseList, compact && css.compactList, scrollable && css.scrollable, portal && css.portal, side === 'top' && !portal && css.sideTop, align === 'end' && !portal && css.alignEnd)}
       style={portal ? fixedPos ?? MEASURE_STYLE : undefined}
       role="menu"
+      onKeyDown={onListKeyDown}
       // React portals bubble synthetic events through the REACT tree: without
       // this stop, an item click re-fires the anchor row's own onClick
       // (open/toggle) after onSelect.
-      onKeyDown={onListKeyDown}
       onClick={(e) => { e.stopPropagation() }}
     >
       <div className={css.viewport} role="presentation">

@@ -21,13 +21,16 @@ function validateMapping(session: Session, event: SessionEvent, fail: InvariantF
     && candidate.data.message.id === mapping.messageId)
   if (assistant === undefined || assistant.type !== 'assistant/message') {
     fail(`assistant/markdown-image ${mapping.messageId} has no earlier assistant message`)
+    return
   }
   if (assistant.data.turn !== mapping.turn || assistant.data.step !== mapping.step) {
     fail(`assistant/markdown-image ${mapping.messageId} has mismatched turn or step`)
+    return
   }
   const block = assistant.data.message.content[mapping.textBlockIndex]
   if (block?.type !== 'text') {
     fail(`assistant/markdown-image ${mapping.messageId} points outside a text block`)
+    return
   }
   const occurrence = extractMarkdownImages(block.text).find(item => item.index === mapping.imageIndex)
   if (occurrence === undefined || occurrence.destination !== mapping.destination) {
@@ -41,7 +44,10 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
   const seed = (session: Session): void => {
     for (const event of session.events) validateMapping(session, event, fail)
   }
-  for (const session of ctx.sessions.list()) seed(session)
+  const sessions = ctx.get('sessions')
+  if (sessions !== undefined && typeof sessions.list === 'function') {
+    for (const session of sessions.list()) seed(session)
+  }
   ctx.on('session/created', seed, { global: true })
   ctx.on('session/event', (session, event) => {
     const candidate = staged.get(event)

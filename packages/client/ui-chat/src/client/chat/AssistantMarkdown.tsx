@@ -159,7 +159,7 @@ type LocalMarkdownImageInput = {
 
 function isLocalMarkdownDestination(destination: string): boolean {
   if (destination.startsWith('//')) return false
-  if (destination.startsWith('file:')) return true
+  if (/^file:/i.test(destination)) return true
   if (/^[A-Za-z]:[\\/]/.test(destination)) return true
   try {
     const protocol = new URL(destination).protocol
@@ -181,15 +181,18 @@ function LocalMarkdownImage({
 }) {
   const [resolved, setResolved] = useState<AssistantMarkdownImage | undefined>(mapping)
   const [failed, setFailed] = useState(false)
+  const [disabled, setDisabled] = useState(false)
   const [attempt, setAttempt] = useState(0)
   useEffect(() => {
     if (mapping !== undefined) {
       setResolved(mapping)
       setFailed(false)
+      setDisabled(false)
       return
     }
     setResolved(undefined)
     setFailed(false)
+    setDisabled(false)
     if (resolve === undefined) return
     const controller = new AbortController()
     let live = true
@@ -201,6 +204,8 @@ function LocalMarkdownImage({
     }, controller.signal).then((result) => {
       if (!live) return
       if (result.ok) setResolved(result.value)
+      else if (result.error.code === 'session/attachment-invalid'
+        && result.error.details.reason === 'LOCAL_MARKDOWN_IMAGES_DISABLED') setDisabled(true)
       else setFailed(true)
     }, () => {
       if (live) setFailed(true)
@@ -213,11 +218,12 @@ function LocalMarkdownImage({
 
   if (resolved !== undefined) {
     return renderMessageImages({
-      images: [{ attachment: resolved.attachment }],
+      images: [{ attachment: resolved.attachment, alt: input.alt }],
       align: 'start',
       inline: true,
     })
   }
+  if (disabled) return <span>{input.alt}</span>
   if (failed) {
     return (
       <button

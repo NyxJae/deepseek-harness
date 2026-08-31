@@ -22,6 +22,12 @@ describe('local Markdown image projection', () => {
     ])
   })
 
+  it('keeps the first definition when image references repeat an identifier', () => {
+    expect(extractMarkdownImages('![picture][image]\n\n[image]: first.png\n[image]: second.png')).toEqual([
+      { index: 0, destination: 'first.png', alt: 'picture' },
+    ])
+  })
+
   it('does not count an unresolved image reference that remains literal text', () => {
     expect(extractMarkdownImages('![missing][unknown]\n\n![loaded](loaded.jpg)')).toEqual([
       { index: 0, destination: 'loaded.jpg', alt: 'loaded' },

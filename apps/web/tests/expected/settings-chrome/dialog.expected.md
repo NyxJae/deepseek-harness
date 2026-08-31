@@ -1,10 +1,6 @@
 - dialog "设置":
-  - text: 设置
-  - button "打开配置文件"
-  - button "关闭":
-    - img
-    - text: 关闭
   - navigation:
+    - text: 设置
     - button "通用设置":
       - img
       - text: 通用设置
@@ -17,13 +13,13 @@
     - button "Agent 预设":
       - img
       - text: Agent 预设
-  - text: Agent 预设 对此后新建的会话生效。运行中的会话保持它开始时的预设。
-  - button "标准模式":
-    - text: 标准模式
+  - button "打开配置文件"
+  - button "关闭":
     - img
+    - text: 关闭
   - text: 权限 选择新会话的默认权限模式
-  - button "Workspace Write":
-    - text: Workspace Write
+  - button "可写入工作区":
+    - text: 可写入工作区
     - img
   - text: 语言
   - button "中文":

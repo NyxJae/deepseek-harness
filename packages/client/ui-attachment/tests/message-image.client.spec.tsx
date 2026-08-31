@@ -57,6 +57,14 @@ describe('MessageImage', () => {
     expect(load).toHaveBeenCalledWith(attachment)
   })
 
+  it('uses authored Markdown alt text for a durable attachment', async () => {
+    const load = vi.fn().mockResolvedValue('blob:authored-alt')
+    const view = render(<MessageImage image={{ attachment, alt: 'authored alt' }} load={load} variant="single" labels={labels} />)
+    await waitFor(() => { expect(view.getByAltText('authored alt')).toBeTruthy() })
+    expect(view.getByRole('button', { name: 'authored alt，点击查看原图' })).toBeTruthy()
+  })
+
+
   it('loads a session-authorized URL, bounds the thumbnail, and clicks into the original', async () => {
     const load = vi.fn().mockResolvedValue('blob:history')
     const view = render(<MessageImage image={{ attachment }} load={load} variant="single" labels={labels} />)

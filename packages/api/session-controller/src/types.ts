@@ -7,9 +7,10 @@ import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 import type { ChunkRow } from '@deepseek-ai/dsh-session/chunk-rows'
-import type { JsonValue, SessionHeader, SessionId, SurfaceOp } from '@deepseek-ai/dsh-session/types'
+import type { SessionHeader, SessionId, SurfaceOp } from '@deepseek-ai/dsh-session/types'
 import type { SessionProjectionMap } from '@deepseek-ai/dsh-session-projection/types'
 import type { JobId } from '@deepseek-ai/dsh-jobs/brand'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
@@ -33,12 +34,14 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
 
 declare module '@deepseek-ai/dsh-session/types' {
   interface SessionEventMap {
-    /** Complete validated model selection requested for subsequent prompt assembly. Log-only. */
+    /**
+     * Complete validated model selection requested for subsequent prompt
+     * assembly. Log-only: it never enters derived model history.
+     */
     'model/selection': ModelSelection
     /**
      * Durable mapping for one finalized Assistant Markdown image. Log-only;
      * it is never included in the model-visible message surface.
-     * @mode append
      * @param turn - Assistant turn containing the message.
      * @param step - Assistant step containing the message.
      * @param messageId - finalized Assistant message identity.
@@ -50,7 +53,6 @@ declare module '@deepseek-ai/dsh-session/types' {
     'assistant/markdown-image': SessionMarkdownImageMapping
   }
 }
-
 
 /** One validated Assistant Markdown image occurrence and its durable attachment. */
 export interface SessionMarkdownImageMapping {
@@ -196,54 +198,38 @@ export const SESSION_SEARCH_RESULT_LIMIT = 20
 /** Maximum search snippet length in Unicode code points. */
 export const SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS = 240
 
-/** Error details returned by Session Remote methods. */
-export interface SessionErrorDetailsMap {
-  'bad-request': Record<never, never>
-  cancelled: Record<never, never>
-  'session-not-found': { readonly sessionId: SessionId }
-  'model-unavailable': { readonly provider: string; readonly model: string }
-  'session-conflict': {
-    readonly sessionId: SessionId
-    readonly requestedCwd: string
-    readonly existingCwd?: string
+declare module '@deepseek-ai/dsh-typert-protocol' {
+  interface RemoteErrorDetailsMap {
+    'session/model-unavailable': { readonly provider: string; readonly model: string }
+    'session/conflict': {
+      readonly sessionId: SessionId
+      readonly requestedCwd: string
+      readonly existingCwd?: string
+    }
+    'session/agent-busy': { readonly reason: string }
+    'session/invalid-time-zone': { readonly value: string }
+    'session/workspace-attach-failed': { readonly sessionId: SessionId; readonly workspaceId: string }
+    'agent-preset/conflict': {
+      readonly sessionId: SessionId
+      readonly requestedPreset: string
+      readonly existingPreset?: string
+    }
+    'session/attachment-invalid': { readonly reason: string }
+    'session/queue-item-not-found': { readonly itemId: MessageId }
+    'session/steer-unavailable': { readonly itemId: MessageId }
+    'session/title-invalid': { readonly sessionId: SessionId }
+    'session/fork-unavailable': { readonly sessionId: SessionId }
+    'subagent/not-found': {
+      readonly parentSessionId: SessionId
+      readonly childSessionId: SessionId
+    }
+    'subagent/catalog-diagnostic': {
+      readonly parentSessionId: SessionId
+      readonly childSessionId: SessionId
+      readonly reason: 'corrupt' | 'unsupported' | 'unavailable'
+    }
   }
-  'invalid-time-zone': { readonly value: string }
-  'workspace-attach-failed': { readonly sessionId: SessionId; readonly workspaceId: string }
-  'workspace-not-found': { readonly workspaceId: string }
-  'agent-preset-conflict': {
-    readonly sessionId: SessionId
-    readonly requestedPreset: string
-    readonly existingPreset?: string
-  }
-  'agent-preset-not-found': { readonly agentPreset: string; readonly available: readonly string[] }
-  'agent-preset-invalid': { readonly agentPreset: string; readonly reason: string }
-  'agent-busy': { readonly reason: string }
-  'attachment-error': { readonly reason: string }
-  'queue-item-not-found': { readonly itemId: MessageId }
-  'steer-unavailable': { readonly itemId: MessageId }
-  'title-invalid': { readonly sessionId: SessionId }
-  'fork-unavailable': { readonly sessionId: SessionId }
-  'subagent-not-found': {
-    readonly parentSessionId: SessionId
-    readonly childSessionId: SessionId
-  }
-  'subagent-catalog-diagnostic': {
-    readonly parentSessionId: SessionId
-    readonly childSessionId: SessionId
-    readonly reason: 'corrupt' | 'unsupported' | 'unavailable'
-  }
-  'subagent-unauthorized': { readonly childSessionId: SessionId }
-  internal: Record<never, never>
 }
-
-/** Session business failure returned without throwing a carrier error. */
-export type SessionError = {
-  [Code in keyof SessionErrorDetailsMap]: {
-    readonly code: Code
-    readonly message: string
-    readonly details: SessionErrorDetailsMap[Code]
-  }
-}[keyof SessionErrorDetailsMap]
 
 /** Session-addressed request for the human-invocable skill catalog. */
 export interface SkillListRequest {
@@ -355,7 +341,6 @@ export interface SessionAttachmentRequest {
   readonly sessionId: SessionId
   readonly attachmentId: AttachmentIdType
 }
-
 /** Request to resolve one local Markdown image in a finalized Assistant message. */
 export interface SessionResolveMarkdownImageRequest {
   readonly sessionId: SessionId
@@ -458,6 +443,7 @@ export interface SessionWireEvent {
   readonly seq: number
   readonly time: number
   readonly data: JsonValue
+  readonly ignorable?: true
   readonly sourceEventSeqs?: number[]
   readonly surfaceOp?: SurfaceOp
 }
@@ -492,6 +478,8 @@ export type SessionFollowFrame =
     readonly records: readonly SessionHistoryRecord[]
     readonly hasMore: boolean
     readonly projections: SessionProjectionBaseline
+    /** Whether this ordinary Session may resolve local Markdown images in this deployment. */
+    readonly localMarkdownImages?: boolean
   }
   | SessionEventEntry
 

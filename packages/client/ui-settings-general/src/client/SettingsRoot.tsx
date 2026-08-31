@@ -1,21 +1,27 @@
 /**
  * Settings shell root: the sidebar-foot trigger row plus the centered modal
- * settings panel. The shell owns the title/action/close header and the
- * responsive navigation/content layout; feature text and sections arrive from
- * registrants through slots. Accessible names resolve from those slot seats;
- * component-local state owns only modal visibility and active navigation.
- * The onboarding coordinator mounts one ordered registrant while the
- * sessions-derived empty-Hero fact is active. Visible dialog chrome belongs to
- * the step, so a mounted-but-deciding step paints nothing here.
+ * panel (figma 501:29947, 1080x700) with the section nav rail. The shell is
+ * a pure composition face — every piece of text (trigger label, panel title,
+ * close label, sections) arrives from registrants through slots; accessible
+ * names resolve to that content (trigger: its own text; dialog:
+ * aria-labelledby the title node; close: visually-hidden slot text). Modal
+ * open state and the active section id are component-local viewing state;
+ * the onboarding coordinator mounts exactly one ordered registrant while the
+ * sessions-derived empty-Hero fact is active. Visible dialog chrome belongs
+ * to the step, so a mounted-but-deciding step paints nothing here.
  */
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
+  ConnectionIndicator,
   IconAgentPresetOutline16, IconCloseOutline16, IconDataOutline16,
   IconPersonalizationOutline16, IconSettingsOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { ConnectionIndicatorState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SettingsRootComponentProps, SettingsSectionRow } from './shell-contract.ts'
 import css from './SettingsRoot.module.css'
+
+const RECOVERY_CONFIRMATION_MS = 2_000
 
 /** Nav glyph by section id; unknown ids fall back to the settings gear. */
 function navIcon(id: string) {
@@ -24,30 +30,6 @@ function navIcon(id: string) {
   if (id === 'plugins') return <IconPersonalizationOutline16 className={css.navIcon} size={16} />
   return <IconSettingsOutline16 className={css.navIcon} size={16} />
 }
-
-const FOCUSABLE_SELECTOR = [
-  'button:not([disabled])',
-  'input:not([disabled])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
-  'a[href]',
-  '[tabindex]:not([tabindex="-1"])',
-].join(',')
-
-function focusableElements(panel: HTMLElement): HTMLElement[] {
-  return [...panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)]
-    .filter(element => element.closest('[hidden]') === null && element.getAttribute('aria-hidden') !== 'true')
-}
-
-function belongsToNestedOverlay(target: EventTarget | null, panel: HTMLElement): boolean {
-  const element = target instanceof Element ? target : null
-  if (element === null) return false
-  const dialog = element.closest('[role="dialog"]')
-  if (dialog !== null && dialog !== panel) return true
-  return element.closest('[role="menu"]') !== null
-    || element.closest('[aria-haspopup="menu"][aria-expanded="true"]') !== null
-}
-
 
 type PanelProps = {
   rows: readonly SettingsSectionRow[]
@@ -58,71 +40,52 @@ type PanelProps = {
 }
 
 /**
- * The modal layer: full-viewport mask + centered panel. The header owns the
- * title, optional action, and close button; the navigation and content occupy
- * the rows below it. Close paths are the header button, a mask click, and
- * document-level Escape (mounted only while open, so the listener lifetime is
- * the panel's).
+ * The modal layer: full-viewport mask + centered panel. Close paths: the
+ * header button, a mask click, and document-level Escape (mounted only while
+ * open, so the listener lifetime is the panel's).
  */
 function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelProps) {
   // Entries can unmount underneath the requested id, so the render-time
   // projection falls back to the first row when the id is gone.
   const active = rows.find(r => r.id === activeId)?.id ?? rows[0]?.id
   const titleId = useId()
+  const panel = useRef<HTMLDivElement | null>(null)
 
-  const panelRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      const panel = panelRef.current
-      if (panel === null || belongsToNestedOverlay(event.target, panel)) return
       if (event.key === 'Escape') {
         event.preventDefault()
-        event.stopPropagation()
+        event.stopImmediatePropagation()
         onClose()
         return
       }
       if (event.key !== 'Tab') return
-      const focusables = focusableElements(panel)
-      if (focusables.length === 0) return
+      const focusables = [...panel.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ) ?? []]
+      const first = focusables[0]
+      const last = focusables.at(-1)
+      if (first === undefined || last === undefined) return
       const active = document.activeElement
-      const index = focusables.indexOf(active as HTMLElement)
-      if (!panel.contains(active) || index === -1) {
+      if (!panel.current?.contains(active) || (event.shiftKey && active === first) || (!event.shiftKey && active === last)) {
         event.preventDefault()
-        ;(event.shiftKey ? focusables.at(-1) : focusables[0])?.focus()
-        return
-      }
-      if (event.shiftKey && index === 0) {
-        event.preventDefault()
-        focusables.at(-1)?.focus()
-      } else if (!event.shiftKey && index === focusables.length - 1) {
-        event.preventDefault()
-        focusables[0]?.focus()
+        ;(event.shiftKey ? last : first).focus()
       }
     }
     document.addEventListener('keydown', onKeyDown, true)
     return () => { document.removeEventListener('keydown', onKeyDown, true) }
   }, [onClose])
 
-  // Baseline focus management: entering the dialog lands on the close button.
+  // Entering the dialog focuses the close button; the root restores its trigger on close.
   const closeButton = useRef<HTMLButtonElement | null>(null)
-  useEffect(() => {
-    const focusCloseButton = (): void => { closeButton.current?.focus() }
-    focusCloseButton()
-    queueMicrotask(focusCloseButton)
-  }, [])
+  useEffect(() => { closeButton.current?.focus() }, [])
+
   return (
     <div className={css.overlay} role="presentation">
       <div className={css.mask} aria-hidden="true" onClick={onClose} />
-      <div ref={panelRef} className={css.panel} role="dialog" aria-modal="true" aria-labelledby={titleId}>
-        <div className={css.header}>
-          <div className={css.headerTitle} id={titleId}>{renderSlot('settings.header', {})}</div>
-          <div className={css.actions}>{renderSlot('settings.action', {})}</div>
-          <button ref={closeButton} type="button" className={css.close} onClick={onClose}>
-            <IconCloseOutline16 size={14} />
-            <span className={css.hiddenLabel}>{renderSlot('settings.close', {})}</span>
-          </button>
-        </div>
+      <div ref={panel} className={css.panel} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <nav className={css.nav}>
+          <div className={css.navTitle} id={titleId}>{renderSlot('settings.header', {})}</div>
           <div className={css.navList}>
             {rows.map(row => (
               <button
@@ -139,6 +102,13 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
           </div>
         </nav>
         <div className={css.content}>
+          <div className={css.header}>
+            <div className={css.actions}>{renderSlot('settings.action', {})}</div>
+            <button ref={closeButton} type="button" className={css.close} onClick={onClose}>
+              <IconCloseOutline16 size={14} />
+              <span className={css.hiddenLabel}>{renderSlot('settings.close', {})}</span>
+            </button>
+          </div>
           <div className={css.options}>
             {active !== undefined && renderSlot('settings.section', { close: onClose }, { only: active })}
           </div>
@@ -147,31 +117,31 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
     </div>
   )
 }
+
 /**
  * Render the settings trigger and panel.
  * @param props - composed slot props (contract/slots.ts).
  * @returns the settings shell element tree.
  */
 export function SettingsRoot(props: SettingsRootComponentProps) {
-  const { wide, useSections, useOnboardingSteps, useSessions, renderSlot } = props
+  const {
+    wide, reconnect, useConnectionState, useSections, useOnboardingSteps, useSessions, renderSlot, t,
+  } = props
   const [open, setOpen] = useState(false)
-  const triggerButton = useRef<HTMLButtonElement | null>(null)
-  const wasOpen = useRef(false)
   const [activeId, setActiveId] = useState<string | undefined>(undefined)
-  useEffect(() => {
-    if (open) {
-      wasOpen.current = true
-      return
-    }
-    if (!wasOpen.current) return
-    wasOpen.current = false
-    triggerButton.current?.focus()
-  }, [open])
   const [completedOnboarding, setCompletedOnboarding] = useState<ReadonlySet<string>>(() => new Set())
+  const [showRecovery, setShowRecovery] = useState(false)
+  const triggerButton = useRef<HTMLButtonElement | null>(null)
+  const wasOpen = useRef(open)
   const close = useCallback(() => {
     setOpen(false)
     setActiveId(undefined)
   }, [])
+  // Restore after the close commit, when the dialog can no longer own focus.
+  useEffect(() => {
+    if (wasOpen.current && !open) triggerButton.current?.focus()
+    wasOpen.current = open
+  }, [open])
   const openSection = useCallback((id: string) => {
     setActiveId(id)
     setOpen(true)
@@ -181,6 +151,8 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
   // freshly localized text on locale change, and the trigger/header/close
   // seats re-render through their own outlets' subscriptions.
   const rows = useSections(s => s)
+  const connectionState = useConnectionState(state => state)
+  const previousConnectionState = useRef(connectionState)
   const onboardingSteps = useOnboardingSteps(s => s)
   const onboardingActive = useSessions(state =>
     state.phase === 'ready'
@@ -194,6 +166,19 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
     setCompletedOnboarding(new Set())
   }, [onboardingActive])
 
+  useLayoutEffect(() => {
+    const previous = previousConnectionState.current
+    previousConnectionState.current = connectionState
+    if (connectionState !== 'connected') {
+      setShowRecovery(false)
+      return
+    }
+    if (previous !== 'disconnected' && previous !== 'connecting') return
+    setShowRecovery(true)
+    const timeout = window.setTimeout(() => { setShowRecovery(false) }, RECOVERY_CONFIRMATION_MS)
+    return () => { window.clearTimeout(timeout) }
+  }, [connectionState])
+
   const completeOnboardingStep = useCallback((id: string) => {
     setCompletedOnboarding((previous) => {
       if (previous.has(id)) return previous
@@ -201,17 +186,39 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
     })
   }, [])
 
+  let connectionIndicator: ConnectionIndicatorState | undefined
+  if (connectionState === 'disconnected') {
+    connectionIndicator = 'disconnected'
+  } else if (connectionState === 'connecting') {
+    connectionIndicator = 'connecting'
+  } else if (showRecovery) {
+    connectionIndicator = 'recovered'
+  }
+
   return (
     <>
-      <button ref={triggerButton}
-        type="button"
-        className={clsx(css.trigger, !wide && css.rail)}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => { setOpen(true) }}
-      >
-        {renderSlot('settings.trigger', { wide })}
-      </button>
+      <div className={clsx(css.triggerRow, !wide && css.railRow)}>
+        <button
+          ref={triggerButton}
+          type="button"
+          className={clsx(css.trigger, !wide && css.rail)}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => { setOpen(true) }}
+        >
+          {renderSlot('settings.trigger', { wide })}
+        </button>
+        <ConnectionIndicator
+          state={wide ? connectionIndicator : undefined}
+          disconnectedLabel={t('connection.error')}
+          reconnectLabel={t('connection.retry')}
+          connectingLabel={t('connection.connecting')}
+          recoveredLabel={t('connection.connected')}
+          reconnectActionLabel={t('connection.reconnect')}
+          restartActionLabel={t('connection.restart')}
+          onReconnect={reconnect}
+        />
+      </div>
       {open && (
         <SettingsPanel
           rows={rows}

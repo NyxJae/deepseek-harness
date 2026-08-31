@@ -1,17 +1,26 @@
-/* Settings shell: a desktop two-column settings panel that becomes a stacked
-   mobile panel with a full-width header, horizontally scrollable navigation,
-   and one scrollable content column. */
-
-/* Trigger row: the 42px foot-row box shared with the Cordis footer action. */
-
-.trigger {
+.triggerRow {
   flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
   width: calc(100% + 4px);
-  height: 42px;
   margin: 4px -2px;
+}
+
+.triggerRow.railRow {
+  width: 36px;
+  margin: 8px 0 10px;
+}
+
+.trigger {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  height: 42px;
+  margin: 0;
   padding: 0 10px 0 8px;
   box-sizing: border-box;
   border: none;
@@ -31,9 +40,10 @@
 
 /* Rail trigger: the same 36x36 circle box as the other rail controls. */
 .trigger.rail {
+  flex: none;
   width: 36px;
   height: 36px;
-  margin: 8px 0 10px;
+  margin: 0;
   justify-content: center;
   gap: 0;
   padding: 0;
@@ -64,19 +74,18 @@
 }
 
 /* Panel (figma Settings 501:29947): r24, white, lv3 shadow (figma effects
-   match --dsw-shadow-lv3 exactly); desktop keeps the 188px navigation rail
-   while the header spans the panel. Content that does not fit scrolls in
-   `.options`. */
+   match --dsw-shadow-lv3 exactly); figma's 1080x700 is shrunk to 800 wide.
+   One height for every section, taken from the viewport rather than the
+   content: sections differ by hundreds of pixels (a settings list against the
+   composition editor), and a content-sized panel would resize under the
+   pointer on every nav click. Whatever does not fit scrolls in `.options`. */
 .panel {
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-columns: 188px minmax(0, 1fr);
-  grid-template-rows: 54px minmax(0, 1fr);
+  display: flex;
   width: 800px;
   height: min(800px, calc(100vh - 48px));
   max-width: calc(100vw - 48px);
-  min-height: 0;
   border-radius: 24px;
   overflow: hidden;
   background: var(--dsw-alias-bg-layer-2);
@@ -89,28 +98,22 @@
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
-/* Nav rail (figma .Setting-nav 501:29958): 188 wide, with the panel header
-   occupying the first grid row. The list starts below that header and the
-   panel fill shows through. */
+
+/* Nav rail (figma .Setting-nav 501:29958): 188 wide, pad (12,22,12,0),
+   gap 18, no own fill — the panel white shows through. */
 .nav {
-  grid-column: 1;
-  grid-row: 2;
+  flex: none;
   display: flex;
   flex-direction: column;
+  gap: 18px;
   width: 188px;
-  min-width: 0;
-  padding: 10px 12px 0;
+  padding: 22px 12px 0;
   box-sizing: border-box;
 }
 
-/* Dialog title: aligned with the header actions on desktop and retained as
-   the first row of the mobile panel. */
-.headerTitle {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+/* Title row (figma 501:29959): 16/500 lh24, 12px side padding. */
+.navTitle {
+  padding: 0 12px;
   font-size: 16px;
   line-height: 24px;
   font-weight: 500;
@@ -165,29 +168,23 @@
   text-overflow: ellipsis;
 }
 
-/* Content column: the scrollable settings section area below the shared
-   header and navigation. */
+/* Content column (figma Content 501:29980): header + options. */
 .content {
-  grid-column: 2;
-  grid-row: 2;
+  flex: 1;
   min-width: 0;
-  min-height: 0;
   display: flex;
   flex-direction: column;
 }
-/* Header (figma .Header 501:29981): title, actions, and close control share
-   one row on desktop; the row spans the panel so mobile can keep the same
-   controls above its horizontal navigation. */
+
+/* Header (figma .Header 501:29981): h54, pad (10,20,14,8), close right. */
 .header {
-  grid-column: 1 / -1;
-  grid-row: 1;
-  min-width: 0;
+  flex: none;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
   height: 54px;
-  padding: 20px 14px 8px 24px;
+  padding: 20px 14px 8px 10px;
   box-sizing: border-box;
 }
 
@@ -253,25 +250,19 @@
     max-width: none;
     height: min(800px, calc(100vh - 24px));
     height: min(800px, calc(100dvh - 24px));
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 54px auto minmax(0, 1fr);
+    flex-direction: column;
     border-radius: 20px;
   }
 
-  .header {
-    grid-column: 1;
-    grid-row: 1;
-    align-items: center;
-    padding: 14px 12px 8px 16px;
+  .nav {
+    width: 100%;
+    padding: 14px 12px 8px;
+    gap: 10px;
+    overflow: hidden;
   }
 
-  .nav {
-    grid-column: 1;
-    grid-row: 2;
-    width: 100%;
-    padding: 0 12px 8px;
-    overflow: hidden;
-    position: relative;
+  .navTitle {
+    padding: 0 4px;
   }
 
   .navList {
@@ -281,16 +272,6 @@
     overflow-x: auto;
     padding-bottom: 4px;
     scrollbar-width: none;
-  }
-  .nav::after {
-    position: absolute;
-    top: 0;
-    right: 12px;
-    bottom: 8px;
-    width: 24px;
-    pointer-events: none;
-    background: linear-gradient(to right, transparent, var(--dsw-alias-bg-layer-2));
-    content: '';
   }
 
   .navList::-webkit-scrollbar {
@@ -310,13 +291,15 @@
   }
 
   .content {
-    grid-column: 1;
-    grid-row: 3;
+    min-height: 0;
+  }
+
+  .header {
+    align-items: center;
+    padding: 14px 12px 8px 16px;
   }
 
   .options {
-    padding-right: 16px;
-    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
-    padding-left: 16px;
+    padding: 0 16px max(16px, env(safe-area-inset-bottom, 0px));
   }
 }

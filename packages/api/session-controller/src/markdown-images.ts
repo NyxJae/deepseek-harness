@@ -6,7 +6,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { AttachmentError } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentRef, ImageMediaType } from '@deepseek-ai/dsh-attachment'
 import type {} from '@deepseek-ai/dsh-fs'
-import { TypertRemoteFailure } from '@deepseek-ai/dsh-typert-protocol'
+import { RemoteError, remoteErrorOf, type RemoteFailure } from '@deepseek-ai/dsh-typert-protocol'
 import type * as Md from 'mdast'
 import { fromMarkdown } from 'mdast-util-from-markdown'
 import { gfmFromMarkdown } from 'mdast-util-gfm'
@@ -33,6 +33,8 @@ interface MarkdownNode {
   readonly url?: string
   readonly alt?: string | null
 }
+
+/** One finalized Markdown image occurrence in document order. */
 export interface MarkdownImageOccurrence {
   readonly index: number
   readonly destination: string
@@ -52,7 +54,7 @@ export interface LocalMarkdownImagesConfig {
  * records the mapping after the attachment has been published.
  */
 export class SessionMarkdownImageResolver {
-  private readonly inflight = new Map<string, Promise<SessionResolveMarkdownImageValue>>()
+  private readonly inflight = new Map<string, SharedMarkdownImageRequest<SessionResolveMarkdownImageValue>>()
   private readonly pending = new Map<string, PendingMapping>()
   private disposed = false
 
@@ -68,7 +70,9 @@ export class SessionMarkdownImageResolver {
   ) {
     ctx.effect(() => async () => {
       this.disposed = true
-      await Promise.allSettled([...this.inflight.values()])
+      const active = [...this.inflight.values()]
+      for (const request of active) request.cancel()
+      await Promise.allSettled(active.map(request => request.promise))
       this.inflight.clear()
       this.pending.clear()
     }, 'session-controller.markdown-images')
@@ -85,18 +89,23 @@ export class SessionMarkdownImageResolver {
     signal: AbortSignal,
   ): Promise<SessionResolveMarkdownImageValue> {
     if (this.config.mode === 'disabled') {
-      return Promise.reject(failure('attachment-error', 'Local Markdown images are disabled.', 'LOCAL_MARKDOWN_IMAGES_DISABLED'))
+      return Promise.reject(failure('session/attachment-invalid', 'Local Markdown images are disabled.', 'LOCAL_MARKDOWN_IMAGES_DISABLED'))
     }
-    if (this.disposed) return Promise.reject(failure('internal', 'Local Markdown image resolver is disposed.', 'RESOLVER_DISPOSED'))
+    if (this.disposed) return Promise.reject(failure('gateway/internal', 'Local Markdown image resolver is disposed.', 'RESOLVER_DISPOSED'))
     validateRequest(request)
+    if (signal.aborted) return Promise.reject(cancellationFailure())
     const key = mappingKey(request)
-    const existing = this.inflight.get(key)
-    if (existing !== undefined) return existing
-    const operation = this.resolveOnce(request, signal).finally(() => {
-      this.inflight.delete(key)
-    })
-    this.inflight.set(key, operation)
-    return operation
+    let shared = this.inflight.get(key)
+    if (shared === undefined) {
+      shared = new SharedMarkdownImageRequest(sharedSignal => this.resolveOnce(request, sharedSignal))
+      this.inflight.set(key, shared)
+      const current = shared
+      void shared.promise.then(
+        () => { if (this.inflight.get(key) === current) this.inflight.delete(key) },
+        () => { if (this.inflight.get(key) === current) this.inflight.delete(key) },
+      )
+    }
+    return shared.wait(signal)
   }
 
   private async resolveOnce(
@@ -105,21 +114,20 @@ export class SessionMarkdownImageResolver {
   ): Promise<SessionResolveMarkdownImageValue> {
     signal.throwIfAborted()
     const resolved = await this.agents.resolveAgent(request.sessionId)
-    if ('error' in resolved) {
-      throw failure(resolved.error.code, resolved.error.message, 'SESSION_RESOLVE_FAILED', resolved.error.details)
-    }
+    signal.throwIfAborted()
+    if ('error' in resolved) throw resolved.error
     const session = resolved.agent.session
     const assistant = findAssistantMessage(session.events, request.messageId)
     if (assistant === undefined) {
-      throw failure('bad-request', 'The addressed Assistant message is not in this Session.', 'MESSAGE_NOT_FOUND')
+      throw failure('gateway/bad-request', 'The addressed Assistant message is not in this Session.', 'MESSAGE_NOT_FOUND')
     }
     const block = assistant.data.message.content[request.textBlockIndex]
     if (block?.type !== 'text') {
-      throw failure('bad-request', 'The addressed content block is not text.', 'TEXT_BLOCK_NOT_FOUND')
+      throw failure('gateway/bad-request', 'The addressed content block is not text.', 'TEXT_BLOCK_NOT_FOUND')
     }
     const occurrence = extractMarkdownImages(block.text).find(item => item.index === request.imageIndex)
     if (occurrence === undefined || occurrence.destination !== request.destination) {
-      throw failure('bad-request', 'The Markdown image occurrence does not match the Session message.', 'IMAGE_OCCURRENCE_MISMATCH')
+      throw failure('gateway/bad-request', 'The Markdown image occurrence does not match the Session message.', 'IMAGE_OCCURRENCE_MISMATCH')
     }
     const existing = findMapping(
       session.events,
@@ -141,12 +149,12 @@ export class SessionMarkdownImageResolver {
       this.pending.delete(key)
       return mapping
     } catch (error: unknown) {
-      if (error instanceof TypertRemoteFailure) {
-        const reason = (error.failure.details as { readonly reason?: unknown }).reason
-        if (pending !== undefined && reason !== 'CANCELLED') this.pending.set(key, pending)
-        throw error
+      const remote = remoteErrorOf(error)
+      if (remote !== undefined) {
+        if (pending !== undefined && remote.code !== 'gateway/cancelled') this.pending.set(key, pending)
+        throw remote
       }
-      if (signal.aborted) throw failure('cancelled', 'Local Markdown image resolution was cancelled.', 'CANCELLED')
+      if (signal.aborted) throw failure('gateway/cancelled', 'Local Markdown image resolution was cancelled.', 'CANCELLED')
       if (pending !== undefined) this.pending.set(key, pending)
       throw mapFailure(error)
     }
@@ -160,24 +168,24 @@ export class SessionMarkdownImageResolver {
     signal: AbortSignal,
   ): Promise<SessionMarkdownImageMapping> {
     const path = localPath(destination)
-    if (path === undefined) throw failure('bad-request', 'The Markdown destination is not a local image path.', 'LOCAL_PATH_REQUIRED')
+    if (path === undefined) throw failure('gateway/bad-request', 'The Markdown destination is not a local image path.', 'LOCAL_PATH_REQUIRED')
     const target = await this.ctx.fs.resolve(
       path,
-      session.header.cwd === undefined ? undefined : { cwd: session.header.cwd, signal },
+      session.header.cwd === undefined ? { signal } : { cwd: session.header.cwd, signal },
     )
     signal.throwIfAborted()
     const info = await this.ctx.fs.stat(target, signal)
-    if (info === undefined) throw failure('attachment-error', `Local image not found: ${destination}`, 'IMAGE_NOT_FOUND')
-    if (info.type !== 'file') throw failure('attachment-error', `Local image is not a regular file: ${destination}`, 'IMAGE_NOT_REGULAR_FILE')
+    if (info === undefined) throw failure('session/attachment-invalid', `Local image not found: ${destination}`, 'IMAGE_NOT_FOUND')
+    if (info.type !== 'file') throw failure('session/attachment-invalid', `Local image is not a regular file: ${destination}`, 'IMAGE_NOT_REGULAR_FILE')
     if (info.size !== undefined && info.size > this.ctx.attachments.imageLimits.maxImageBytes) {
-      throw failure('attachment-error', 'Local image exceeds the configured image-size limit.', 'IMAGE_TOO_LARGE')
+      throw failure('session/attachment-invalid', 'Local image exceeds the configured image-size limit.', 'IMAGE_TOO_LARGE')
     }
     if (this.config.mode === 'workspaces' && !(await this.inRegisteredWorkspace(target, signal))) {
-      throw failure('attachment-error', 'Local image is outside every registered Workspace.', 'IMAGE_OUTSIDE_WORKSPACE')
+      throw failure('session/attachment-invalid', 'Local image is outside every registered Workspace.', 'IMAGE_OUTSIDE_WORKSPACE')
     }
     const mediaType = IMAGE_MEDIA_TYPES[extensionOf(path)]
     if (mediaType === undefined) {
-      throw failure('attachment-error', 'The local image extension is not supported.', 'UNSUPPORTED_IMAGE_EXTENSION')
+      throw failure('session/attachment-invalid', 'The local image extension is not supported.', 'UNSUPPORTED_IMAGE_EXTENSION')
     }
     const data = await this.ctx.fs.readBytes(target, signal, this.ctx.attachments.imageLimits.maxImageBytes)
     signal.throwIfAborted()
@@ -213,22 +221,83 @@ export class SessionMarkdownImageResolver {
   }
 }
 
+class SharedMarkdownImageRequest<T> {
+  readonly controller = new AbortController()
+  readonly promise: Promise<T>
+  private settled = false
+  private waiters = 0
+
+  constructor(start: (signal: AbortSignal) => Promise<T>) {
+    this.promise = Promise.resolve().then(() => start(this.controller.signal)).finally(() => {
+      this.settled = true
+    })
+  }
+
+  wait(signal: AbortSignal): Promise<T> {
+    if (signal.aborted) return Promise.reject(cancellationFailure())
+    this.waiters += 1
+    return new Promise<T>((resolve, reject) => {
+      let finished = false
+      const finish = (callback: () => void, cancelled: boolean): void => {
+        if (finished) return
+        finished = true
+        signal.removeEventListener('abort', abort)
+        this.release(cancelled)
+        callback()
+      }
+      const abort = (): void => {
+        finish(() => {
+          reject(cancellationFailure())
+        }, true)
+      }
+      signal.addEventListener('abort', abort, { once: true })
+      void this.promise.then(
+        (value) => {
+          finish(() => {
+            resolve(value)
+          }, false)
+        },
+        (error: unknown) => {
+          finish(() => {
+            reject(error instanceof Error ? error : new Error('Shared Markdown image request failed.', { cause: error }))
+          }, false)
+        },
+      )
+    })
+  }
+
+  cancel(): void {
+    if (!this.settled) this.controller.abort(cancellationFailure())
+  }
+
+  private release(cancelled: boolean): void {
+    this.waiters -= 1
+    if (cancelled && this.waiters === 0 && !this.settled) this.controller.abort(cancellationFailure())
+  }
+}
+
 interface PendingMapping {
   readonly mapping: SessionMarkdownImageMapping
 }
 
 function validateRequest(request: SessionResolveMarkdownImageRequest): void {
   if (request.sessionId.length === 0 || request.messageId.length === 0 || request.destination.length === 0) {
-    throw failure('bad-request', 'The local Markdown image request is incomplete.', 'INVALID_IMAGE_REQUEST')
+    throw failure('gateway/bad-request', 'The local Markdown image request is incomplete.', 'INVALID_IMAGE_REQUEST')
   }
   if (!Number.isSafeInteger(request.textBlockIndex) || request.textBlockIndex < 0
     || !Number.isSafeInteger(request.imageIndex) || request.imageIndex < 0) {
-    throw failure('bad-request', 'Markdown image indexes must be non-negative integers.', 'INVALID_IMAGE_INDEX')
+    throw failure('gateway/bad-request', 'Markdown image indexes must be non-negative integers.', 'INVALID_IMAGE_INDEX')
   }
 }
 
-function mappingKey(request: Pick<SessionResolveMarkdownImageRequest, 'sessionId' | 'messageId' | 'textBlockIndex' | 'imageIndex'>): string {
-  return `${request.sessionId}/${request.messageId}/${String(request.textBlockIndex)}/${String(request.imageIndex)}`
+function mappingKey(request: Pick<SessionResolveMarkdownImageRequest, 'sessionId' | 'messageId' | 'textBlockIndex' | 'imageIndex' | 'destination'>): string {
+  return JSON.stringify([
+    request.sessionId,
+    request.messageId,
+    request.textBlockIndex,
+    request.imageIndex,
+    request.destination,
+  ])
 }
 
 function findAssistantMessage(
@@ -261,6 +330,7 @@ function extensionOf(path: string): string {
 }
 
 function localPath(destination: string): string | undefined {
+  if (destination.startsWith('//') || destination.startsWith('\\\\')) return undefined
   try {
     const parsed = new URL(destination)
     if (parsed.protocol === 'file:') return fileURLToPath(parsed)
@@ -282,7 +352,11 @@ function parseMarkdown(text: string): Md.Root {
   })
 }
 
-/** Extract image nodes in the same logical order as settled Markdown rendering. */
+/**
+ * Extract image nodes in the same logical order as settled Markdown rendering.
+ * @param text - finalized Assistant Markdown text.
+ * @returns image occurrences with renderer-compatible indexes and destinations.
+ */
 export function extractMarkdownImages(text: string): MarkdownImageOccurrence[] {
   const root = parseMarkdown(text)
   const definitions = new Map<string, Md.Definition>()
@@ -336,27 +410,53 @@ function collectTargets(
 ): void {
   for (const node of nodes) {
     if (node.type === 'definition' && node.identifier !== undefined && node.url !== undefined) {
-      definitions.set(node.identifier.toUpperCase(), node as Md.Definition)
+      const id = node.identifier.toUpperCase()
+      if (!definitions.has(id)) definitions.set(id, node as Md.Definition)
     }
     if (node.type === 'footnoteDefinition' && node.identifier !== undefined) {
-      footnotes.set(node.identifier.toUpperCase(), node as Md.FootnoteDefinition)
+      const id = node.identifier.toUpperCase()
+      if (!footnotes.has(id)) footnotes.set(id, node as Md.FootnoteDefinition)
     }
     const children = node.children
     for (const child of children ?? []) collectTargets([child], definitions, footnotes)
   }
 }
 
-function mapFailure(error: unknown): TypertRemoteFailure {
-  if (error instanceof AttachmentError) return failure('attachment-error', error.message, error.code)
-  if (error instanceof TypertRemoteFailure) return error
-  return failure('attachment-error', `Unable to read local image: ${error instanceof Error ? error.message : String(error)}`, 'IMAGE_READ_FAILED')
+function mapFailure(error: unknown): RemoteFailure {
+  const remote = remoteErrorOf(error)
+  if (remote !== undefined) return remote
+  if (error instanceof AttachmentError) {
+    return new RemoteError('session/attachment-invalid', error.message, { reason: error.code })
+  }
+  return new RemoteError(
+    'gateway/internal',
+    'Unable to read local Markdown image.',
+    {},
+    { cause: error },
+  )
+}
+function cancellationFailure(): RemoteError<'gateway/cancelled'> {
+  return new RemoteError('gateway/cancelled', 'Local Markdown image resolution was cancelled.', {})
 }
 
+function failure(code: 'gateway/bad-request', message: string, reason: string): RemoteError<'gateway/bad-request'>
+function failure(code: 'gateway/cancelled', message: string, reason: string): RemoteError<'gateway/cancelled'>
+function failure(code: 'gateway/internal', message: string, reason: string): RemoteError<'gateway/internal'>
+function failure(code: 'session/attachment-invalid', message: string, reason: string, details?: Record<string, unknown>): RemoteError<'session/attachment-invalid'>
 function failure(
-  code: string,
+  code: 'gateway/bad-request' | 'gateway/cancelled' | 'gateway/internal' | 'session/attachment-invalid',
   message: string,
   reason: string,
   details: Record<string, unknown> = {},
-): TypertRemoteFailure {
-  return new TypertRemoteFailure({ code, message, details: { reason, ...details } })
+): RemoteFailure {
+  switch (code) {
+    case 'gateway/bad-request':
+      return new RemoteError(code, message, {})
+    case 'gateway/cancelled':
+      return new RemoteError(code, message, {})
+    case 'gateway/internal':
+      return new RemoteError(code, message, {})
+    case 'session/attachment-invalid':
+      return new RemoteError(code, message, { reason, ...details })
+  }
 }

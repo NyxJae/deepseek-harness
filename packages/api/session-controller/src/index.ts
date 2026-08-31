@@ -6,7 +6,7 @@ import { errorChain } from '@deepseek-ai/dsh-llm'
 import { canOpenNativePath, openNativePath } from '@deepseek-ai/dsh-native-command'
 import type { SessionEvent, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionObservation } from '@deepseek-ai/dsh-session-query'
-import { Remote, TypertRemoteFailure, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import {
   ApiSessionAgentController,
   inspectApiSession,
@@ -132,12 +132,13 @@ export class SessionController extends TypertRemoteService {
     ctx.effect(() => async () => {
       await Promise.allSettled([...this.promotions])
     }, 'session-controller.promotions')
-    this.history = new SessionHistoryController(ctx, (observation) => { this.promote(observation) })
-    this.markdownImages = new SessionMarkdownImageResolver(
+    const localMarkdownImages = config.localMarkdownImages ?? { mode: 'disabled' }
+    this.history = new SessionHistoryController(
       ctx,
-      this.agents,
-      config.localMarkdownImages ?? { mode: 'disabled' },
+      (observation) => { this.promote(observation) },
+      localMarkdownImages.mode !== 'disabled',
     )
+    this.markdownImages = new SessionMarkdownImageResolver(ctx, this.agents, localMarkdownImages)
     this.listState = new ApiSessionList(
       ctx,
       config.coldBlankProbeMaxBytes ?? DEFAULT_COLD_BLANK_PROBE_MAX_BYTES,
@@ -279,7 +280,7 @@ export class SessionController extends TypertRemoteService {
    * @param request - path after best-effort Session workspace resolution.
    * @param signal - caller lifetime; abort terminates the native command.
    * @returns confirmation after the native opener accepts the path.
-   * @throws TypertRemoteFailure when the request is invalid, cancelled, or the opener fails.
+   * @throws RemoteError when the request is invalid, cancelled, or the opener fails.
    */
   @Remote('openWorkspacePath')
   async openWorkspacePath(
@@ -287,27 +288,23 @@ export class SessionController extends TypertRemoteService {
     signal: AbortSignal,
   ): Promise<SessionOpenWorkspacePathValue> {
     if (request.path.length === 0) {
-      throw new TypertRemoteFailure({
-        code: 'bad-request',
-        message: 'session.openWorkspacePath requires a non-empty path',
-        details: {},
-      })
+      throw new RemoteError(
+        'gateway/bad-request',
+        'session.openWorkspacePath requires a non-empty path',
+        {},
+      )
     }
     signal.throwIfAborted()
     try {
       await this.openPath(request.path, signal)
       return { opened: true }
     } catch (error: unknown) {
-      if (signal.aborted) {
-        throw new TypertRemoteFailure({
-          code: 'cancelled', message: 'path open was aborted', details: {},
-        })
-      }
-      throw new TypertRemoteFailure({
-        code: 'internal',
-        message: `path open failed: ${error instanceof Error ? error.message : String(error)}`,
-        details: {},
-      })
+      if (signal.aborted) throw new RemoteError('gateway/cancelled', 'path open was aborted', {})
+      throw new RemoteError(
+        'gateway/internal',
+        `path open failed: ${error instanceof Error ? error.message : String(error)}`,
+        {},
+      )
     }
   }
 
@@ -352,7 +349,6 @@ export class SessionController extends TypertRemoteService {
   attachment(request: SessionAttachmentRequest): Promise<SessionAttachmentValue> {
     return this.commands.attachment(request)
   }
-
   /**
    * Resolve one local Markdown image into a durable Session attachment.
    * @param request - Session and message-local image occurrence.

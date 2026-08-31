@@ -54,9 +54,7 @@ None; Chat presentation does not assemble or mutate provider requests.
 ## Known Limitations and Deferred Work
 
 <a id="known-limitations-and-deferred-work"></a>
-
-- **Local Markdown images depend on Host policy** — finalized Assistant text requests local image mappings only when Session Controller enables `localMarkdownImages.mode`; the resulting attachment mapping survives source-file deletion and replay, while a refused or failed occurrence remains a retryable inline control.
-
+- **Local Markdown images depend on Host policy** — when `localMarkdownImages.mode` is disabled, local destinations stay as authored alt text without a network request or retry control; when Session Controller enables the mode, finalized Assistant text requests local image mappings, the resulting attachment mapping survives source-file deletion and replay, and a refused or failed enabled occurrence remains a retryable inline control.
 - **The view reflects the loaded Session window** — older transcript nodes become available only after Session Controller loads the preceding event page. Turn navigation likewise represents only loaded Turns; loading an earlier page preserves existing Turn marks and redistributes the complete loaded set in a compact rail without an unloaded-history placeholder. Marks stay 10px apart until the loaded set exceeds the available height, then compress to fit.
 
 

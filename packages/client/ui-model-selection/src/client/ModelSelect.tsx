@@ -61,8 +61,8 @@ export function ModelSelect(
   const rootRef = useRef<HTMLDivElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
-  const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
   const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null)
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
   const id = useId()
 
   const choices = useMemo(() => state.groups.flatMap(group =>

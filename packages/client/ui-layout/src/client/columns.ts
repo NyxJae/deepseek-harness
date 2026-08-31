@@ -3,14 +3,14 @@
  * Chain order is fixed by contract: keep center >= CENTER_MIN by shrinking
  * details, then auto-closing it (derived zero width — preferred width
  * preferences are never rewritten, so widening the window restores them).
- * The sidebar never concedes in the ordinary three-column mode: its rendered
- * width is always the drag preference (or the collapsed rail), and center
- * absorbs any remaining deficit as the last resort. Mobile overlay mode is the
- * exception: the sidebar consumes no grid track and AppFrame renders it above
- * the center column. Inputs are the layout store's plain width preferences
- * (0 = closed); closed details resolve to zero width. The
- * SIDEBAR_AUTO_COLLAPSE breakpoint is consumed by AppFrame, which selects the
- * overlay mode; the solver itself stays breakpoint-free.
+ * The sidebar never concedes: its rendered width is always the drag
+ * preference (or the collapsed rail), and center absorbs any remaining
+ * deficit as the last resort. Inputs are the layout store's plain width
+ * preferences (0 = closed); a closed sidebar resolves to the fixed
+ * SIDEBAR_COLLAPSED control rail while closed details resolve to zero width.
+ * The SIDEBAR_AUTO_COLLAPSE breakpoint is consumed by AppFrame, which decides
+ * the effective sidebar preference before solving; the solver itself stays
+ * breakpoint-free.
  */
 
 /** Resolved widths for one frame; center may drop below CENTER_MIN only at the final fallback. */
@@ -21,6 +21,7 @@ export interface ComputeColumnsOptions {
   /** Render the sidebar outside the grid so it consumes no center-column width. */
   sidebarOverlay?: boolean
 }
+
 
 // Contract-frozen geometry: the three-column concession chain's fixed points.
 /** Center column floor; only the final fallback may go below it. */

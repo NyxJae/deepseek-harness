@@ -489,10 +489,3 @@
     flex-wrap: wrap;
   }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .card,
-  .iconButton::after {
-    transition: none;
-  }
-}

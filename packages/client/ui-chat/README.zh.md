@@ -54,9 +54,7 @@ Chat 会为每个非空的初始或恢复请求、显式消息序列起点或真
 ## 已知限制与暂缓事项
 
 <a id="known-limitations-and-deferred-work"></a>
-
-- **本地 Markdown 图片依赖 Host 策略**——只有 Session Controller 启用 `localMarkdownImages.mode` 时，已完成 Assistant 文本才会请求本地图片映射；映射会在源文件删除后和回放中保留，拒绝或失败的调用实例会保留可重试的行内控件。
-
+- **本地 Markdown 图片依赖 Host 策略**——`localMarkdownImages.mode` disabled 时，本地目标保持作者写入的 alt 文本，不发起网络请求，也不显示重试控件；Session Controller 启用该模式后，已完成的 Assistant 文本才请求本地图片映射，生成的附件映射会在源文件删除后和回放中保留，启用模式下被拒绝或失败的调用实例会保留可重试的行内控件。
 - **视图只反映已加载的 Session 窗口**——只有 Session Controller 加载前一页 event 后，更早的 transcript node 才会出现。轮次导航同样只表示已加载的 Turn；加载更早一页时，已有 Turn 刻度保持身份不变，完整的已加载集合在紧凑轨道中重新排布，不显示未加载历史占位。刻度默认相隔 10px，仅在已加载集合超过可用高度时压缩间距。
 
 

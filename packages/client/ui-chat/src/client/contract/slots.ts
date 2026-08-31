@@ -1,3 +1,4 @@
+/** Chat-owned Slot declarations and composed component props. */
 import type { SessionFace } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import type {
@@ -67,7 +68,7 @@ export interface ChatNodeOwnerProps {
   inspectCall: (callId: ToolCallId) => void
   forkAt: (seq: number) => void
   renderMessageImages: RenderMessageImages
-  resolveMarkdownImage: SessionFace['resolveMarkdownImage']
+  resolveMarkdownImage?: SessionFace['resolveMarkdownImage'] | undefined
   fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined
   /** Turn-process state when this Node belongs to a projected Turn. */
   turnProcess?: TurnProcessOwnerProps | undefined
@@ -121,6 +122,7 @@ export interface ChatViewInjected {
   loadOlder: () => void
   loadImage: MessageImageLoader
   resolveMarkdownImage: SessionFace['resolveMarkdownImage']
+  canResolveMarkdownImage?: SessionFace['canResolveMarkdownImage'] | undefined
   chatScroll: {
     save: (position: ChatScrollPosition | null) => void
     read: () => ChatScrollPosition | null

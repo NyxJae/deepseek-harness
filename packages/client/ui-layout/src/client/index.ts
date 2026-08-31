@@ -46,10 +46,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * the seats it declares disappear with it. To add something to the
      * sidebar, register into one of those inner seats instead.
      *
-     * The occupant receives the frame's live column state. Desktop closed
-     * state renders the compact control rail; a narrow frame supplies
-     * `mobile: true`, uses a zero-width grid track, and lets the occupant
-     * render a fixed drawer or its trigger.
+     * The occupant receives the frame's live column state (collapsed, width)
+     * and is expected to render the compact control rail while collapsed.
      */
     'sidebar': { kind: 'single'; scope: 'root'; owner: SidebarOwnerProps }
     /**
@@ -97,9 +95,9 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** Sidebar owner share: live column state from the frame's layout solve. */
 export interface SidebarOwnerProps {
-  /** True when the sidebar is closed. */
+  /** True when the sidebar is closed (the column renders the compact control rail). */
   collapsed: boolean
-  /** Rendered width in px; zero means a mobile overlay trigger is shown. */
+  /** Rendered column width in px; zero means a mobile overlay trigger is shown. */
   width: number
   /** True when the sidebar must overlay the center column on narrow frames. */
   mobile: boolean

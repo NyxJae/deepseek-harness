@@ -516,7 +516,7 @@ function inlineCodeHttpUrl(value: string): string | undefined {
 
 function renderImage(url: string, alt: string, key: Key, context: MarkdownRenderContext): ReactNode {
   const index = context.nextImageIndex()
-  const replacement = context.imageResolver?.resolve({ url, alt, index })
+  const replacement = context.inLink === true ? undefined : context.imageResolver?.resolve({ url, alt, index })
   if (replacement !== undefined) return <Fragment key={key}>{replacement}</Fragment>
   const imageSrc = remoteImageUrl(sanitizeUrl(normalizeUri(url)))
   if (imageSrc === undefined) {

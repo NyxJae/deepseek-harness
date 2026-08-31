@@ -54,6 +54,7 @@ describe('ImageLightbox', () => {
     fireEvent.mouseDown(mask)
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
   it('locks page scrolling, traps focus, and controls zoom with keyboard and wheel input', () => {
     document.body.style.overflow = 'scroll'
     const view = render(<ImageLightbox src="blob:original" alt="原图" labels={labels} onClose={vi.fn()} />)

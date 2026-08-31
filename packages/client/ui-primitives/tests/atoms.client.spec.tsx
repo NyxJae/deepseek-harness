@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Button, ConnectionBanner, Input, Menu, Modal, Pill } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, ConnectionIndicator, Input, Menu, Modal, Pill } from '@deepseek-ai/dsh-client-ui-primitives'
 import { POINTER_GRACE_MS } from '../src/pointer-grace.ts'
 
 afterEach(cleanup)
@@ -88,7 +88,6 @@ describe('Menu', () => {
     fireEvent.pointerDown(document.body)
     expect(onClose).toHaveBeenCalledTimes(2)
   })
-
   it('focuses the selected item and supports keyboard navigation', async () => {
     const onClose = vi.fn()
     const props = {
@@ -124,6 +123,8 @@ describe('Menu', () => {
     rerender(<Menu {...props} open={false} />)
     await waitFor(() => { expect(document.activeElement).toBe(trigger) })
   })
+
+
 
   it('inside pointerdown does not close', () => {
     const onClose = vi.fn()
@@ -455,11 +456,37 @@ describe('Modal', () => {
   })
 })
 
-describe('ConnectionBanner', () => {
-  it('renders only while reconnecting', () => {
-    const { container, rerender } = render(<ConnectionBanner reconnecting={false} label="Reconnecting" />)
+describe('ConnectionIndicator', () => {
+  it('renders outage, attempt progress, and recovered states without a native tooltip', () => {
+    const reconnect = vi.fn()
+    const labels = {
+      disconnectedLabel: 'Disconnected',
+      reconnectLabel: 'Reconnect',
+      connectingLabel: 'Connecting',
+      recoveredLabel: 'Connected',
+      reconnectActionLabel: 'Disconnected, reconnect now',
+      restartActionLabel: 'Connecting, restart now',
+      onReconnect: reconnect,
+    }
+    const { container, rerender } = render(
+      <ConnectionIndicator state={undefined} {...labels} />,
+    )
     expect(container.firstChild).toBeNull()
-    rerender(<ConnectionBanner reconnecting label="Reconnecting" />)
-    expect(container.textContent).toContain('Reconnecting')
+    rerender(<ConnectionIndicator state="disconnected" {...labels} />)
+    const indicator = screen.getByRole('button', { name: 'Disconnected, reconnect now' })
+    expect(indicator.textContent).toContain('Disconnected')
+    expect(indicator.textContent).toContain('Reconnect')
+    expect(indicator.hasAttribute('title')).toBe(false)
+    expect(indicator.querySelector('svg')).toBeTruthy()
+    fireEvent.click(indicator)
+    expect(reconnect).toHaveBeenCalledOnce()
+
+    rerender(<ConnectionIndicator state="connecting" {...labels} />)
+    expect(screen.getByRole('button', { name: 'Connecting, restart now' }).textContent)
+      .toContain('Connecting...')
+
+    rerender(<ConnectionIndicator state="recovered" {...labels} />)
+    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.getByRole('status', { name: 'Connected' })).toBeTruthy()
   })
 })

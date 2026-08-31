@@ -22,9 +22,9 @@ function makeContext(): MarkdownRenderContext {
     streaming: false,
     labels: markdownLabels,
     fileMentions: undefined,
+    nextImageIndex: (() => { let index = 0; return () => index++ })(),
     targets: createReferenceTargets(),
     footnoteOrder: [],
-    nextImageIndex: (() => { let index = 0; return () => index++ })(),
     footnoteCounts: new Map(),
   }
 }

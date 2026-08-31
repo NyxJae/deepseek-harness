@@ -29,6 +29,9 @@ export type ChatNode<Kind extends ChatNodeKind = ChatNodeKind> = {
 /** Assistant-local durable mapping for one Markdown image occurrence. */
 export type AssistantMarkdownImage = SessionMarkdownImageMapping
 
+
+
+
 /** Final Assistant row payload shared by streaming and settled states. */
 export interface AssistantChatData {
   readonly status: 'running' | 'settled' | 'interrupted'

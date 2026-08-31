@@ -41,8 +41,6 @@ function mountShell({ collapsed = false, width = 300, mobile = false }: { collap
     <SidebarRoot
       collapsed={current.collapsed} width={current.width} mobile={current.mobile}
       useSessions={neverHook} useSessionPendingInteraction={useSessionPendingInteraction} useWorkspaces={neverHook}
-
-
       startSession={startSession} toggleSidebar={toggleSidebar} t={t}
       renderSlot={((
         key: string,
@@ -108,9 +106,6 @@ describe('SidebarRoot shell', () => {
     const { container } = render(<SidebarRoot
       collapsed={false} width={300} mobile={false}
       useSessions={neverHook} useSessionPendingInteraction={useSessionPendingInteraction} useWorkspaces={neverHook}
-
-
-
       startSession={vi.fn()} toggleSidebar={vi.fn()} t={t}
       renderSlot={((_key: string, _owner: unknown, options?: { fallback?: ReactNode }) =>
         options?.fallback ?? null) as SidebarRootComponentProps['renderSlot']}
@@ -128,7 +123,6 @@ describe('SidebarRoot shell', () => {
     for (const [name, value] of Object.entries(environment)) vi.stubEnv(name, value)
     render(<SidebarRoot
       collapsed={false} width={300} mobile={false}
-
       useSessions={neverHook} useSessionPendingInteraction={useSessionPendingInteraction} useWorkspaces={neverHook}
       startSession={vi.fn()} toggleSidebar={vi.fn()} t={t}
       renderSlot={((_key: string, _owner: unknown, options?: { fallback?: ReactNode }) =>
@@ -142,7 +136,6 @@ describe('SidebarRoot shell', () => {
   it('retains the local-build fallback without complete build metadata', () => {
     render(<SidebarRoot
       collapsed={false} width={300} mobile={false}
-
       useSessions={neverHook} useSessionPendingInteraction={useSessionPendingInteraction} useWorkspaces={neverHook}
       startSession={vi.fn()} toggleSidebar={vi.fn()} t={t}
       renderSlot={((_key: string, _owner: unknown, options?: { fallback?: ReactNode }) =>
@@ -196,7 +189,6 @@ describe('SidebarRoot shell', () => {
     expect(document.activeElement).toBe(drawerClose)
     expect(screen.getAllByRole('button', { name: 'Collapse sidebar' })).toHaveLength(3)
     expect(screen.getByTestId('region')).toBeTruthy()
-    // The mobile brand row closes the drawer instead of creating a Session.
     fireEvent.click(drawerClose)
     expect(b.startSession).not.toHaveBeenCalled()
     expect(b.toggleSidebar).toHaveBeenCalledOnce()
@@ -212,6 +204,7 @@ describe('SidebarRoot shell', () => {
     b.rerender({ collapsed: true })
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open sidebar' }))
   })
+
   it('preserves focus when an already-open mobile drawer is mounted', () => {
     const outside = document.createElement('button')
     document.body.append(outside)

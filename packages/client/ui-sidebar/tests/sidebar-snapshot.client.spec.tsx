@@ -77,6 +77,7 @@ describe('sidebar shell snapshots', () => {
     slot.update({ collapsed: true, width: 56, mobile: false })
     // The wide content fades out at the 150ms settle; the rail's capsule
     // remains the only New Session button.
+    // only the rail's capsule remains a New-session button.
     await waitFor(() => {
       expect(slot.view.getByRole('button', { name: 'Open sidebar' })).toBeTruthy()
       expect(shell?.className).toContain('collapsed')

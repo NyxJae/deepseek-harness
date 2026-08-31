@@ -86,7 +86,6 @@ kind: "package-reference"
 
 <a id="known-limitations-and-deferred-work"></a>
 
-
 这些限制界定了当前附件表面。它们是包约束，不是通用图片查看器对比或任务积压。
 
 - **仅支持图片**——非图片文件尚无附件栏卡片与历史渲染；DeepSeek Chat 风格的文件卡片和上传进度等输入框接受非图片附件后再做。
