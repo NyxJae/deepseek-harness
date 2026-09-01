@@ -393,6 +393,20 @@ export class SubagentContinuationManager {
   }
 
   /**
+   * Return whether an exact live parent owns a live direct-child Activation.
+   * Persisted but cold children and a same-SessionId replacement parent do not match.
+   * @param parent - exact live parent Agent to inspect.
+   * @returns whether one direct child Activation is resident for that parent.
+   */
+  hasPendingContinuations(parent: Agent): boolean {
+    if (this.ctx.agents.get(parent.id) !== parent) return false
+    for (const activation of this.activations.values()) {
+      if (activation.parentSession === parent.id && activation.ancestry.has(parent)) return true
+    }
+    return false
+  }
+
+  /**
    * Start one continuable background child: reserve its durable identity,
    * resolve the provider's detached creation spec, create the child Agent
    * through the private activation-owner scope, establish any continuable-parent

@@ -2278,7 +2278,7 @@ describe('continuable lifecycle observation', () => {
 })
 
 describe('continuable public API', () => {
-  it('exposes no host authority, residency query, cancellation, steering, or report operation', async () => {
+  it('exposes no host authority, cancellation, steering, or report operation', async () => {
     const { ctx } = await setup([])
     const subagents: Record<string, unknown> = ctx.subagents as unknown as Record<string, unknown>
     for (const absent of [
@@ -2297,6 +2297,29 @@ describe('continuable public API', () => {
     const names = ctx.tools.schemas().map(schema => schema.name)
     expect(names).not.toContain('report')
     expect(names).not.toContain('steer_subagent')
+  })
+
+  it('reports exact live direct-child Activation residency', async () => {
+    const gate = Promise.withResolvers<undefined>()
+    const { ctx, parent } = await setupWith(new GatedAdapter([{ chunks: textResponse('done'), gate: gate.promise }]))
+    parkParent(ctx, parent)
+    let atEnd: boolean | undefined
+    ctx.on('subagent/end', function () {
+      atEnd = ctx.subagents.hasPendingContinuations(parent)
+    })
+
+    expect(ctx.subagents.hasPendingContinuations(parent)).toBe(false)
+    const staleParent = { id: parent.id } as Agent
+    expect(ctx.subagents.hasPendingContinuations(staleParent)).toBe(false)
+
+    const started = await ctx.subagents.startContinuable(startSpec(parent))
+    await vi.waitFor(() => { expect(ctx.subagents.hasPendingContinuations(parent)).toBe(true) })
+    expect(ctx.subagents.hasPendingContinuations(staleParent)).toBe(false)
+
+    gate.resolve(undefined)
+    await waitNoActivation(ctx, started.childId)
+    expect(atEnd).toBe(false)
+    expect(ctx.subagents.hasPendingContinuations(parent)).toBe(false)
   })
 
   it('keeps one-shot runs free of a steering capability', async () => {

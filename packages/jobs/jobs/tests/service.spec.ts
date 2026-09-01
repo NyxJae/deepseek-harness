@@ -32,6 +32,10 @@ class StubJobRegistry extends JobRegistry {
     return [this.snapshotOf(JobId('bash-1'))]
   }
 
+  hasActive(_owner: Agent): boolean {
+    return true
+  }
+
   get(id: JobId): JobSnapshot {
     return this.snapshotOf(id)
   }
@@ -70,6 +74,7 @@ describe('JobRegistry seam', () => {
     const id = ctx.jobs.start({ kind: 'bash', label: 'sleep 60', run: () => ({ cancel() {}, done: new Promise(() => {}) }) })
     expect(id).toBe('bash-1')
     expect(ctx.jobs.list()).toHaveLength(1)
+    expect(ctx.jobs.hasActive({ id: 'stub-agent' } as Agent)).toBe(true)
     expect(ctx.jobs.get(id).status).toBe('running')
     expect(ctx.jobs.read(id).text).toBe('')
     expect(ctx.jobs.kill(id)).toBe('requested')

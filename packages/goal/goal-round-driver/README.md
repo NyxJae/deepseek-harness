@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-goal-round-driver` automatically continues an active goal in the same session: whenever the agent is idle with an active, armed goal and remaining round capacity, the driver starts the next goal round. Each round is one model turn toward the objective, driven by a retained goal-round prompt; only goal-sourced rounds count against the goal's round cap, and the goal records a blocker when the cap is exhausted. The driver has no configuration of its own — the round cap belongs to the goal definition and the model-facing blocked threshold belongs to `dsh-tool-goal`, so policy stays in one place. Mount it together with `dsh-goal` and `dsh-tool-goal` when a task should work itself toward completion across rounds; leave it out when every step needs human steering.
+`dsh-goal-round-driver` automatically continues an active goal in the same session: whenever the agent is idle with an active, armed goal and remaining round capacity, the driver starts the next goal round. Before reserving a round, it also waits for owned background work: exact-owner `running`/`stopping` Jobs and live direct-child continuable Activations keep the agent idle without another model request. Terminal Jobs, other owners, unowned work, and cold persisted children do not block. Each round is one model turn toward the objective, driven by a retained goal-round prompt; only goal-sourced rounds count against the goal's round cap, and the goal records a blocker when the cap is exhausted. The driver has no configuration of its own — the round cap belongs to the goal definition and the model-facing blocked threshold belongs to `dsh-tool-goal`, so policy stays in one place. Mount it together with `dsh-goal` and `dsh-tool-goal` when a task should work itself toward completion across rounds; leave it out when every step needs human steering.
 
 ## Table of Contents
 
@@ -46,7 +46,7 @@ Mount the driver beside the goal service and the goal tools; the driver itself t
 
 ### What each round does
 
-With an exact live agent idle, an active armed goal, and remaining capacity, the driver queues one goal-round prompt. It names the JSON-quoted objective, round number, and cap, and tells the model to use current workspace, tool results, and durable state as authority. An accepted round starts a distinct request series, so Chat renders its self-contained request header before the goal message. The round enters history as a goal-sourced user message; only an entered goal message consumes the cap, while human messages and stale reservations do not. Goal lifecycle mutations still require the independent authority checks in `dsh-tool-goal`.
+With an exact live agent idle, an active armed goal, remaining capacity, and no owned running or stopping Job or live direct-child continuable Activation, the driver queues one goal-round prompt. It names the JSON-quoted objective, round number, and cap, and tells the model to use current workspace, tool results, and durable state as authority. An accepted round starts a distinct request series, so Chat renders its self-contained request header before the goal message. The round enters history as a goal-sourced user message; only an entered goal message consumes the cap, while human messages and stale reservations do not. Goal lifecycle mutations still require the independent authority checks in `dsh-tool-goal`.
 
 ### When continuation stops
 
@@ -72,6 +72,7 @@ This section explains how the driver schedules rounds without races; the observa
 - **Race fences.** The `agent/pre-step` listener verifies the complete claimed record against the current goal both before and after downstream listeners, so a stale, cancelled, or competing prompt is rejected before its step enters. Human work that arrives before a reservation makes automatic work yield until the agent is idle again.
 - **Durability checkpoint.** `goal/changed` creates a durability obligation: before queuing work the driver awaits `ctx.sessions.flush()` and rechecks the goal revision and competing input after the await. A flush failure arriving through `agent/error` disarms continuation before another round can start.
 - **Fail-closed teardown.** Teardown closes admission, disarms every live goal, cancels active work with the `parent` cause, and awaits the driver plus agent quiescence while its event fence remains installed.
+- **Background-work admission.** Optional `ctx.jobs.hasActive(agent)` and `ctx.subagents.hasPendingContinuations(agent)` suppress reservation only for the exact owner's running or stopping Jobs and live direct-child continuable Activations. The driver rechecks the same gate at `agent/pre-step`; terminal Jobs, other owners, unowned Jobs, and cold persisted children do not block.
 
 ### Source map
 

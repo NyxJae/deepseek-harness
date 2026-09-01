@@ -525,6 +525,14 @@ Named provider registry with one-shot runs, durable discovery, and continuable-c
 
 ```ts cordis-catalog
 /**
+ * Read whether an exact live parent owns a live direct-child continuable Activation.
+ * A manager-less composition and a cold persisted child report no pending Activation.
+ * @param parent - exact live parent Agent to inspect.
+ * @returns whether a direct child Activation is resident for that parent.
+ */
+hasPendingContinuations(parent: Agent): boolean
+
+/**
  * Establish one durable continuable child and deliver its initial prompt.
  * Resolves when the child's inbox accepts that prompt, without waiting for the
  * turn to start or for the message to reach the Session log; any earlier

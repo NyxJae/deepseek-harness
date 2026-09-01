@@ -114,6 +114,12 @@
       "prompt": "VPS 中转的手机 Web 需要访问 settings、credentials、host.openPath 和 session.localImage，希望所有非回环限制同开同关，怎么改？",
       "expected": "Use one explicit loopback/trusted-hosts mode for the complete privileged method set, test both modes, preserve the Host trust fence, and state that trustedHosts is reachability policy rather than authentication.",
       "assertions": ["uses one explicit access mode", "tests default and trusted-host modes", "does not remove the base Host trust fence", "states trustedHosts is not authentication"]
+    },
+    {
+      "id": "edge-windows-hmr-artifact-roots",
+      "prompt": "Windows 源码安装的 DSH 开启 Server HMR 后启动很慢，profile 的 root 指向插件包根目录，ignored 写了 **/node_modules/**；如何让改过的内置插件继续热更？",
+      "expected": "Diagnose the Windows path-separator mismatch in the HMR ignored callback, replace package roots with exact active artifact roots such as lib or a direct .mjs entry, distinguish Host build output from Client dev-web, and verify watcher readiness plus real profile boot.",
+      "assertions": ["checks Windows relative-path separators", "does not rely on package-root ignored globs", "uses exact active lib or entry roots", "distinguishes Host and Client build paths", "verifies dump-config and real boot"]
     }
   ]
 }

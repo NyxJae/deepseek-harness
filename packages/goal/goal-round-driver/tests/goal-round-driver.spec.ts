@@ -11,6 +11,8 @@ import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type { UserMessage } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import type { JobOutcome } from '@deepseek-ai/dsh-jobs'
+import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local'
 import * as goalSession from '../src/index.ts'
 
 type ScriptEntry = StreamChunk[] | Error | 'hang' | ((options: GenerateOptions) => StreamChunk[])
@@ -86,11 +88,15 @@ afterEach(async () => {
 })
 
 /** Mount a real loop with only its model scripted. */
-async function harness(script: ScriptEntry[]): Promise<Harness> {
+async function harness(script: ScriptEntry[], options: { jobs?: boolean } = {}): Promise<Harness> {
   const ctx = new Context()
   contexts.push(ctx)
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(SessionProjectionRegistry)
+  if (options.jobs) {
+    await ctx.plugin(LocalJobRegistry)
+    ctx.jobs.attachController('goal-round-driver-test')
+  }
   await ctx.plugin(GoalService)
   const driver = await ctx.plugin(goalSession)
   await ctx.plugin(AgentLoop, { agents: [] })
@@ -211,6 +217,71 @@ describe('same-session goal driving', () => {
     expect(requestText(test.adapter.requests[1]!)).toContain('Round: 2/2')
     expect(test.agent.session.events.flatMap(event =>
       event.type === 'request/header' ? [event.data.reason] : [])).toEqual(['initial', 'series'])
+  })
+  it('does not start an automatic round while an exact owner Job is live', async () => {
+    const test = await harness([], { jobs: true })
+    const done = Promise.withResolvers<JobOutcome>()
+    test.ctx.jobs.start({
+      kind: 'bash',
+      label: 'wait for result',
+      owner: test.agent,
+      run: () => ({ cancel() {}, done: done.promise }),
+    })
+    test.ctx.goals.create(test.agent, { objective: 'wait for background work', maxGoalRounds: 1 })
+
+    await test.agent.whenIdle()
+    expect(test.ctx.jobs.hasActive(test.agent)).toBe(true)
+    expect(test.adapter.requests).toHaveLength(0)
+    expect(test.ctx.goals.get(test.agent)).toMatchObject({ roundsStarted: 0, activation: 'armed' })
+
+    done.resolve({ status: 'completed' })
+    await waitForRequests(test.adapter, 1)
+    expect(requestText(test.adapter.requests[0]!)).toContain('Round: 1/1')
+  })
+
+  it('keeps a stopping reported Job blocking until settlement', async () => {
+    const test = await harness([], { jobs: true })
+    const done = Promise.withResolvers<JobOutcome>()
+    const id = test.ctx.jobs.start({
+      kind: 'bash',
+      label: 'stop slowly',
+      owner: test.agent,
+      run: () => ({ cancel() {}, done: done.promise }),
+    })
+    expect(test.ctx.jobs.kill(id, test.agent)).toBe('requested')
+    expect(test.ctx.jobs.get(id, test.agent)).toMatchObject({ status: 'stopping', reported: true })
+    test.ctx.goals.create(test.agent, { objective: 'wait for stopping work', maxGoalRounds: 1 })
+
+    await test.agent.whenIdle()
+    expect(test.ctx.jobs.hasActive(test.agent)).toBe(true)
+    expect(test.adapter.requests).toHaveLength(0)
+
+    done.resolve({ status: 'killed' })
+    await waitForRequests(test.adapter, 1)
+  })
+
+  it('drops a reserved round when a live owner Job appears before pre-step', async () => {
+    const test = await harness([], { jobs: true })
+    const done = Promise.withResolvers<JobOutcome>()
+    const stop = onClaimedMessage(test.ctx, test.agent, (message) => {
+      if (message.source.kind !== 'goal' || message.source.round <= 0) return
+      stop()
+      test.ctx.jobs.start({
+        kind: 'bash',
+        label: 'appeared after reservation',
+        owner: test.agent,
+        run: () => ({ cancel() {}, done: done.promise }),
+      })
+    })
+    test.ctx.goals.create(test.agent, { objective: 'fence a late background job', maxGoalRounds: 1 })
+
+    await test.agent.whenIdle()
+    expect(test.adapter.requests).toHaveLength(0)
+    expect(test.ctx.goals.get(test.agent)).toMatchObject({ roundsStarted: 0, activation: 'armed' })
+    expect(test.ctx.jobs.hasActive(test.agent)).toBe(true)
+
+    done.resolve({ status: 'completed' })
+    await waitForRequests(test.adapter, 1)
   })
 
   it('never adopts activation from an already-live driver and waits for explicit resume', async () => {

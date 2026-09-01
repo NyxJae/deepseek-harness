@@ -241,14 +241,17 @@ describe('LocalJobRegistry.start', () => {
     const detachOld = ctx.agents.register(oldOwner)
     const oldTask = producer({ owner: oldOwner })
     ctx.jobs.start(oldTask.spec)
+    expect(ctx.jobs.hasActive(oldOwner)).toBe(true)
 
     const otherOwner = stubAgent(ctx, 'other-session')
     ctx.agents.register(otherOwner)
     expect(() => ctx.jobs.start(producer({ owner: otherOwner }).spec)).not.toThrow()
-
+    expect(ctx.jobs.hasActive(otherOwner)).toBe(true)
     detachOld()
     const replacement = stubAgent(ctx, 'shared-session')
     ctx.agents.register(replacement)
+    expect(ctx.jobs.hasActive(replacement)).toBe(false)
+    expect(ctx.jobs.hasActive(oldOwner)).toBe(true)
     expect(() => ctx.jobs.start(producer({ owner: replacement }).spec)).not.toThrow()
 
     ctx.jobs.start(producer().spec)
@@ -258,7 +261,29 @@ describe('LocalJobRegistry.start', () => {
 
     oldTask.settle({ status: 'completed' })
     await tick()
+    expect(ctx.jobs.hasActive(oldOwner)).toBe(false)
     await disposeAgentScope(oldOwner)
+  })
+  it('counts only live records regardless of terminal reported state', async () => {
+    const ctx = await harness({ maxConcurrentJobsPerOwner: 2 })
+    const owner = stubAgent(ctx, 'owner')
+    ctx.agents.register(owner)
+
+    const terminal = producer({ owner })
+    ctx.jobs.start(terminal.spec)
+    expect(ctx.jobs.hasActive(owner)).toBe(true)
+    terminal.settle({ status: 'completed' })
+    await tick()
+    expect(ctx.jobs.hasActive(owner)).toBe(false)
+
+    const stopping = producer({ owner })
+    const stoppingId = ctx.jobs.start(stopping.spec)
+    expect(ctx.jobs.kill(stoppingId, owner)).toBe('requested')
+    expect(ctx.jobs.get(stoppingId, owner).reported).toBe(true)
+    expect(ctx.jobs.hasActive(owner)).toBe(true)
+    stopping.settle({ status: 'killed' })
+    await tick()
+    expect(ctx.jobs.hasActive(owner)).toBe(false)
   })
 
   it('issues kind-prefixed ids from per-kind counters', async () => {

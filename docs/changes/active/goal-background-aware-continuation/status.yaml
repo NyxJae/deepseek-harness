@@ -1,0 +1,14 @@
+change: goal-background-aware-continuation
+status: in-progress
+created: 2026-09-01
+updated: 2026-09-01
+implementation: a-and-b-focused-complete
+review: completed
+verification: focused-tests-complete-full-pending
+built_in_scope:
+  - packages/goal/goal-round-driver
+  - packages/jobs/jobs
+  - packages/jobs/jobs-local
+  - packages/subagent/subagent
+external_scope:
+  - C:/Users/HJ/.dsh/plugins/dsh-goal-guidance
