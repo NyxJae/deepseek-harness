@@ -120,6 +120,8 @@ export interface ChatViewInjected {
   openDetails: (target: SelectionTarget) => void
   openFile: (path: string) => Promise<void>
   loadOlder: () => void
+  /** Jump loader: page history back through seq; resolves when the window covers it. */
+  loadThrough: (seq: number) => Promise<void>
   loadImage: MessageImageLoader
   resolveMarkdownImage: SessionFace['resolveMarkdownImage']
   canResolveMarkdownImage?: SessionFace['canResolveMarkdownImage'] | undefined
