@@ -197,7 +197,7 @@ describe('Session attachment authorization', () => {
         step: 1,
         chunk: { type: 'block-end', index: 0, block: { type: 'image', attachment: streamed } },
       }),
-      event('assistant/markdown-image', 4, {
+      event('assistant/markdown-image', SessionSeq(4), {
         turn: 1,
         step: 1,
         messageId: MessageId('mapped-message'),

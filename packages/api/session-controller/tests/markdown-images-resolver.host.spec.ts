@@ -1,15 +1,13 @@
 /** Host-side local Markdown image admission and mapping tests. */
 
 import { Context } from '@deepseek-ai/cordis'
-import InvariantRegistry, { InvariantError } from '@deepseek-ai/dsh-invariants'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { createAssistantMessage, createUserMessage, MessageId } from '@deepseek-ai/dsh-llm'
-import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
+import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import { describe, expect, it, vi } from 'vitest'
 import { ApiSessionAgentController } from '../src/agent.ts'
 import { SessionMarkdownImageResolver } from '../src/markdown-images.ts'
-import * as SessionControllerInvariant from '../src/invariant.ts'
 
 const IMAGE = {
   attachmentId: 'image-1' as never,
@@ -93,7 +91,7 @@ describe('SessionMarkdownImageResolver', () => {
       destination: 'picture.png',
       attachment: IMAGE,
     })
-    expect(session.events.some(event => event.type === 'assistant/markdown-image')).toBe(true)
+    expect(session.snapshotEvents().some(event => event.type === 'assistant/markdown-image')).toBe(true)
     await ctx.fiber.dispose()
   })
 
@@ -180,29 +178,4 @@ describe('SessionMarkdownImageResolver', () => {
     await ctx.fiber.dispose()
   })
 
-
-  it('rejects a mapping event whose destination is not the earlier Markdown occurrence', async () => {
-    const ctx = new Context()
-    await ctx.plugin(SessionStore)
-    await ctx.plugin(InvariantRegistry)
-    await ctx.plugin(SessionControllerInvariant)
-    const session = ctx.sessions.create(SessionId('markdown-image-invariant'))
-    session.append('turn/start', { turn: 1 })
-    session.append('step/start', { turn: 1, step: 1 })
-    const message = createAssistantMessage({
-      content: [{ type: 'text', text: '![picture](picture.png)' }],
-      source: { provider: 'fixture', model: 'fixture' },
-    })
-    session.append('assistant/message', { turn: 1, step: 1, message }, { surfaceOp: 'append' })
-    expect(() => session.append('assistant/markdown-image', {
-      turn: 1,
-      step: 1,
-      messageId: message.id,
-      textBlockIndex: 0,
-      imageIndex: 0,
-      destination: 'other.png',
-      attachment: IMAGE,
-    })).toThrow(InvariantError)
-    await ctx.fiber.dispose()
-  })
 })

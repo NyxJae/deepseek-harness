@@ -117,7 +117,7 @@ export class SessionMarkdownImageResolver {
     signal.throwIfAborted()
     if ('error' in resolved) throw resolved.error
     const session = resolved.agent.session
-    const assistant = findAssistantMessage(session.events, request.messageId)
+    const assistant = findAssistantMessage(session.snapshotEvents(), request.messageId)
     if (assistant === undefined) {
       throw failure('gateway/bad-request', 'The addressed Assistant message is not in this Session.', 'MESSAGE_NOT_FOUND')
     }
@@ -130,7 +130,7 @@ export class SessionMarkdownImageResolver {
       throw failure('gateway/bad-request', 'The Markdown image occurrence does not match the Session message.', 'IMAGE_OCCURRENCE_MISMATCH')
     }
     const existing = findMapping(
-      session.events,
+      session.snapshotEvents(),
       request.messageId,
       request.textBlockIndex,
       request.imageIndex,
