@@ -43,7 +43,7 @@ function assistantSession(body: string): { session: Session; messageId: MessageI
     { type: 'step/end', seq: 4, time: 5, data: { turn: 1, step: 0 } },
     { type: 'turn/end', seq: 5, time: 6, data: { turn: 1, reason: { kind: 'completed' } } },
   ] as SessionEvent[]
-  const header = { version: 0, id: sessionId, createdAt: 1, cwd: 'C:\\workspace' } as SessionHeader
+  const header = { version: 0, id: sessionId, createdAt: 1, cwd: 'C:\\workspace', isSeeded: false } as SessionHeader
   return { session: Session.create(sessionId, events, header), messageId: message.id }
 }
 

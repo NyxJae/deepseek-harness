@@ -109,7 +109,6 @@
   place-items: center;
   width: 36px;
   height: 36px;
-  padding: 0;
   border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
   border-radius: 999px;
   corner-shape: round;

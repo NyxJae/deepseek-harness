@@ -662,6 +662,7 @@ export class Session implements SessionFace {
     this.baseSeq = SessionLogOffset(entries[0]?.event.seq ?? 0)
     this.hasMore = hasMore
     this.localMarkdownImages = localMarkdownImages
+    this.localMarkdownImages = localMarkdownImages
     if (entries.some(entry => entry.event.type === 'turn/start')) this.firstPromptPendingTurn = false
     if (projections !== undefined) this.projections.seed(projections)
     this.eventSource.replace(entries, hasMore)
