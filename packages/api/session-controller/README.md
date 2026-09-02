@@ -78,3 +78,5 @@ None.
 Local Markdown image mappings are log-only and do not change model-visible requests or token accounting.
 
 </details>
+
+**Runtime invariant:** No companion is published. Every page and frame is checked against the addressed durable Session.

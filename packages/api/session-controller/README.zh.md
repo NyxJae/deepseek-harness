@@ -78,3 +78,5 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用�
 本地 Markdown 图片映射只写入日志，不改变模型可见请求或 token 计量。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。每个分页与帧都会对照其指向的持久 Session 校验。
