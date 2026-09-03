@@ -787,6 +787,7 @@ export function ChatView({
             openFile={requestOpenFile}
             inspectCall={inspectCall}
             forkAt={forkAt}
+            loadImage={loadImage}
             renderMessageImages={renderMessageImages}
             resolveMarkdownImage={canResolveMarkdownImage?.() === true ? resolveMarkdownImage : undefined}
             fileMentions={fileMentions}

@@ -78,6 +78,13 @@ export interface ChatNodeOwnerProps {
   openFile: (path: string) => void
   inspectCall: (callId: ToolCallId) => void
   forkAt: (seq: number) => void
+  /**
+   * Session-authorized image loader, down-threaded from the Chat view so a
+   * chat-node renderer can render the attachment presentation slot directly
+   * with only the durable references plus this loader, instead of receiving a
+   * rendering closure.
+   */
+  loadImage: MessageImageLoader
   renderMessageImages: RenderMessageImages
   resolveMarkdownImage?: SessionFace['resolveMarkdownImage'] | undefined
   fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined
