@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import { IconCheckOutline16 } from './icons/index.tsx'
@@ -42,6 +42,12 @@ function isSeparator(entry: MenuEntry): entry is MenuSeparator {
 function isLabel(entry: MenuEntry): entry is MenuLabel {
   return 'type' in entry && entry.type === 'label'
 }
+function menuItems(list: HTMLDivElement | null): HTMLButtonElement[] {
+  return list === null
+    ? []
+    : [...list.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')]
+}
+
 
 /** Unplaced portal list: hidden but laid out at a fixed origin so offsetWidth/offsetHeight are real. */
 const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
@@ -104,6 +110,8 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
   const listRef = useRef<HTMLDivElement>(null)
   const [openSubmenuId, setOpenSubmenuId] = useState<string | null>(null)
   const [fixedPos, setFixedPos] = useState<CSSProperties | null>(null)
+  const restoreFocus = useRef<HTMLElement | null>(null)
+  const wasOpen = useRef(false)
   const { arm: armClose, cancel: cancelClose } = usePointerGrace(onClose)
 
   // Portal mode: fixed-position the list from the anchor rect before paint;
@@ -158,6 +166,23 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
       window.removeEventListener('resize', place)
     }
   }, [open, portal, align, side, getAnchorRect])
+  useEffect(() => {
+    if (open) {
+      wasOpen.current = true
+      restoreFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      queueMicrotask(() => {
+        const entries = menuItems(listRef.current)
+        const selected = entries.find(item => css.selected !== undefined && item.classList.contains(css.selected))
+        ;(selected ?? entries[0])?.focus()
+      })
+      return
+    }
+    if (!wasOpen.current) return
+    wasOpen.current = false
+    const restore = restoreFocus.current
+    restoreFocus.current = null
+    queueMicrotask(() => { restore?.focus() })
+  }, [open])
 
   useEffect(() => {
     if (!open) {
@@ -189,6 +214,33 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
   useEffect(() => {
     if (!open) cancelClose()
   }, [open, cancelClose])
+  const onListKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      event.stopPropagation()
+      onClose()
+      return
+    }
+    if (event.key === 'Tab') {
+      event.preventDefault()
+      onClose()
+      queueMicrotask(() => { restoreFocus.current?.focus() })
+      return
+    }
+    const entries = menuItems(listRef.current)
+    if (entries.length === 0) return
+    let nextIndex: number
+    if (event.key === 'Home') nextIndex = 0
+    else if (event.key === 'End') nextIndex = entries.length - 1
+    else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      const activeIndex = entries.indexOf(document.activeElement as HTMLButtonElement)
+      const offset = event.key === 'ArrowDown' ? 1 : -1
+      const start = activeIndex === -1 ? (offset < 0 ? 0 : -1) : activeIndex
+      nextIndex = (start + offset + entries.length) % entries.length
+    } else return
+    event.preventDefault()
+    entries[nextIndex]?.focus()
+  }
 
   // The submenu card is absolutely positioned outside the list box; the
   // scroll clip would crop it, so only submenu-free menus get the height cap.
@@ -263,6 +315,7 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
       className={clsx(css.list, dense && css.denseList, compact && css.compactList, scrollable && css.scrollable, portal && css.portal, side === 'top' && !portal && css.sideTop, align === 'end' && !portal && css.alignEnd)}
       style={portal ? fixedPos ?? MEASURE_STYLE : undefined}
       role="menu"
+      onKeyDown={onListKeyDown}
       // React portals bubble synthetic events through the REACT tree: without
       // this stop, an item click re-fires the anchor row's own onClick
       // (open/toggle) after onSelect.
