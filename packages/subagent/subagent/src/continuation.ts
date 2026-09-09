@@ -90,6 +90,11 @@ export class SubagentContinuationManager {
       (provider, childId, parent) => host.observeActivation(provider, childId, parent),
     )
   }
+  /** Return whether this exact parent has a live direct continuable child. */
+  hasPendingContinuations(parent: Agent): boolean {
+    return this.activations.hasPending(parent)
+  }
+
 
   /**
    * Start one continuable background child and resolve at initial inbox acceptance.

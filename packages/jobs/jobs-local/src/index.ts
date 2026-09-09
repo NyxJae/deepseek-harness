@@ -195,6 +195,10 @@ export class LocalJobRegistry extends JobRegistry {
       .filter(job => job.owner === undefined || job.owner.id === session)
       .map(job => this.snapshot(job))
   }
+  /** Return whether this exact Agent owns a live running or stopping Job. */
+  hasActive(owner: Agent): boolean {
+    return this.activeTaskCount(owner) > 0
+  }
 
   get(id: JobId, caller?: Agent): JobSnapshot {
     const job = this.expect(id)

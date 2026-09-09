@@ -273,6 +273,11 @@ export class SubagentRuntime extends TypertRemoteService {
       ? this.requireContinuations().steerPrompt(parent, childId, content, source, signal)
       : this.requireContinuations().queuePrompt(parent, childId, content, source, signal)
   }
+  /** Return whether this exact parent has a live direct continuable child. */
+  hasPendingContinuations(parent: Agent): boolean {
+    return this.continuations?.hasPendingContinuations(parent) ?? false
+  }
+
 
   /**
    * Interrupt one live continuable child's current turn under a human parent

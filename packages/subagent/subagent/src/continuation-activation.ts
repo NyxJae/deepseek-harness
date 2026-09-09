@@ -206,6 +206,14 @@ export class ContinuableActivationRegistry {
   get(childId: SessionId): Activation | undefined {
     return this.resident.get(childId)
   }
+  /** Return whether this exact Agent has a resident direct continuable child. */
+  hasPending(parent: Agent): boolean {
+    for (const activation of this.resident.values()) {
+      if (activation.parentSession === parent.id && activation.ancestry.has(parent)) return true
+    }
+    return false
+  }
+
 
   /**
    * Reject one child identity already owned by a live Agent or Session.
