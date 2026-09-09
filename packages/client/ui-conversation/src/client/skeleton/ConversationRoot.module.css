@@ -467,3 +467,9 @@
 .root[data-phase='settling'] .composerSeat {
   visibility: hidden;
 }
+
+@media (max-width: 720px) {
+  .header {
+    padding-left: 68px;
+  }
+}

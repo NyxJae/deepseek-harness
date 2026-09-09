@@ -217,6 +217,7 @@ export function AppFrame({
         {renderSlot('sidebar', {
           collapsed: sidebarCollapsed,
           width: cols.sidebar,
+          mobile: narrow,
         })}
       </div>
       <>

@@ -103,6 +103,8 @@ export interface SidebarOwnerProps {
   collapsed: boolean
   /** Rendered column width in px (SIDEBAR_COLLAPSED when collapsed). */
   width: number
+  /** True when the frame is below the mobile sidebar breakpoint. */
+  mobile?: boolean
 }
 
 /** Conversation owner share: business state and actions belong to the registrant. */

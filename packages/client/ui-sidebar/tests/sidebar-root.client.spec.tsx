@@ -32,7 +32,7 @@ type AttentionSnapshot = Parameters<Parameters<SidebarRootComponentProps['useSes
 const noAttention: AttentionSnapshot = new Map()
 const useSessionPendingInteraction: SidebarRootComponentProps['useSessionPendingInteraction'] = selector => selector(noAttention)
 
-function mountShell({ collapsed = false, width = 300 }: { collapsed?: boolean; width?: number } = {}) {
+function mountShell({ collapsed = false, width = 300, mobile = false }: { collapsed?: boolean; width?: number; mobile?: boolean } = {}) {
   const startSession = vi.fn()
   const toggleSidebar = vi.fn()
   let regionOwner: SidebarSectionOwnerProps | undefined
@@ -40,10 +40,10 @@ function mountShell({ collapsed = false, width = 300 }: { collapsed?: boolean; w
   let footerActionOwner: SidebarFooterActionOwnerProps | undefined
   const brandMark = <span data-testid="custom-brand-mark">M</span>
   const brandName = <span data-testid="custom-brand-name">Custom Brand</span>
-  let current = { collapsed, width }
+  let current = { collapsed, width, mobile }
   const root = () => (
     <SidebarRoot
-      collapsed={current.collapsed} width={current.width}
+      collapsed={current.collapsed} width={current.width} mobile={current.mobile}
       useSessions={neverHook} useSessionPendingInteraction={useSessionPendingInteraction}
       useResource={useResource} useWorkspaces={neverHook}
       startSession={startSession} toggleSidebar={toggleSidebar} t={t}
@@ -182,5 +182,18 @@ describe('SidebarRoot shell', () => {
     const b = mountShell({ collapsed: true })
     expect(b.regionOwner().wide).toBe(false)
     expect(screen.getByRole('button', { name: 'Open sidebar' })).toBeTruthy()
+  })
+  it('uses the mobile trigger, backdrop, Escape, and focus restoration', () => {
+    const b = mountShell({ mobile: true, collapsed: true })
+    const trigger = screen.getByRole('button', { name: 'Open sidebar' })
+    trigger.focus()
+    fireEvent.click(trigger)
+    expect(b.toggleSidebar).toHaveBeenCalledOnce()
+    b.rerender({ collapsed: false })
+    expect(screen.getAllByRole('button', { name: 'Collapse sidebar' })).toHaveLength(2)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(b.toggleSidebar).toHaveBeenCalledTimes(2)
+    b.rerender({ collapsed: true })
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open sidebar' }))
   })
 })
