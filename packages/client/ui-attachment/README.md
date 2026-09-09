@@ -33,7 +33,7 @@ Images and generic files retain pick order in one non-wrapping horizontal rail. 
 
 ### Message images and the lightbox
 
-In Chat, one user message presents files and images in a right-aligned wrapping flow that preserves source order. A lone image without another attachment renders at 240px on its longer edge (aspect clamped to [0.25, 4], never upscaled); when the message has more than one attachment, each image is a fixed 64px square beside 240×64px file cards. A loaded image opens the document-level lightbox on click; a failed load shows a retry control instead. The lightbox closes on Escape, a mask press, or its close control, and restores focus to its opener.
+In Chat, one user message presents files and images in a right-aligned wrapping flow that preserves source order. A lone image without another attachment renders at 240px on its longer edge (aspect clamped to [0.25, 4], never upscaled); when the message has more than one attachment, each image is a fixed 64px square beside 240×64px file cards. A loaded image opens the document-level lightbox on click; a failed load shows a retry control instead. The lightbox locks background scrolling, traps Tab focus, and supports fit/reset, zoom controls, cursor-centered wheel zoom, pointer drag, touch pinch, double-click zoom, `+`/`-`/`0`, Escape, and opener-focus restoration.
 
 ### Drop overlay
 
@@ -89,8 +89,7 @@ None; this package neither assembles nor sends a provider request.
 
 These limits define the current attachment surface. They are package constraints, not a general image-viewer comparison or a task backlog.
 
-- **No zoom or download in the lightbox** — the preview renders the original at fit-to-viewport size only.
-- **The lightbox does not trap focus** — it sets `aria-modal` and restores focus on close, but Tab can reach the page behind it.
+- **Source ownership stays with the Session Controller** — this package only presents durable references and loading/error states. Local Markdown image admission, path authorization, and replay durability belong to `api-session-controller` and `ui-chat`.
 
 <a id="dev-note"></a>
 ### Dev Note

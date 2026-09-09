@@ -21,7 +21,7 @@ const labels: MessageImageLabels = {
   openNamed: label => `${label}，点击查看原图`,
   loading: '图片加载中…',
   loadFailed: '图片加载失败，点击重试',
-  lightbox: { dialog: '原图预览', close: '关闭原图预览' },
+  lightbox: { dialog: '原图预览', close: '关闭原图预览', zoomIn: '放大原图', zoomOut: '缩小原图', resetZoom: '重置缩放' },
 }
 
 const attachment = {
