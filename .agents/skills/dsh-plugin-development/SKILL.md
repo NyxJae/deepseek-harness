@@ -91,6 +91,12 @@ Server-side Cordis HMR and browser client HMR are separate:
 
 After source edits, inspect HMR logs and verify both internal and external plugin unload cleanup and re-application. A configured HMR root or `dump-config` result is not runtime evidence. If HMR is disabled or profile/package metadata changed, do not restart a protected Web or Gateway Node process without the user's explicit authorization. After an authorized restart, verify the managed job, actual PID/command line, profile, and resolved plugin path before claiming the target is updated.
 
+## Protected Web ports and live verification
+
+- Treat `127.0.0.1:3079` (the user-managed relay/forwarder) and `127.0.0.1:3080` (the user-managed direct Web instance) as protected. Only the user may start, stop, restart, or replace services on these ports; never use either port for the test instance.
+- For every DSH source or plugin implementation change, choose an available loopback port outside that pair (for example `3090`). If it is occupied, choose another port and leave the existing process untouched. Start an independent DSH runtime as a managed background job with `--no-open`; verify the printed startup URL, actual PID/command line, selected profile, resolved plugin or deployment path, and changed behavior. After verification, stop the test job, wait for disposal, and confirm that the test port is no longer listening.
+- Port separation does not isolate `$DSH_HOME`; use a separate test home when the run may change sessions, workspaces, settings, credentials, or persistent storage. A dump-config result, unit test, build output, or HMR log is supporting evidence, not a substitute for applicable runtime evidence. If a change has no runnable DSH surface, state why the runtime step cannot apply.
+
 ## Verification gate
 
 Run the smallest checks covering the changed surface, then an assembled smoke test:

@@ -120,6 +120,12 @@
       "prompt": "Windows 源码安装的 DSH 开启 Server HMR 后启动很慢，profile 的 root 指向插件包根目录，ignored 写了 **/node_modules/**；如何让改过的内置插件继续热更？",
       "expected": "Diagnose the Windows path-separator mismatch in the HMR ignored callback, replace package roots with exact active artifact roots such as lib or a direct .mjs entry, distinguish Host build output from Client dev-web, and verify watcher readiness plus real profile boot.",
       "assertions": ["checks Windows relative-path separators", "does not rely on package-root ignored globs", "uses exact active lib or entry roots", "distinguishes Host and Client build paths", "verifies dump-config and real boot"]
+    },
+    {
+      "id": "edge-protected-web-ports-live-smoke",
+      "prompt": "我要改 DSH 源码或插件并验证。当前用户手动管理 3079 中转和 3080 Web，要求不碰这两个端口，实际启动另一个端口测试，测完关闭。",
+      "expected": "Treat 3079 and 3080 as user-managed protected ports. Select an available loopback port such as 3090, start a managed independent DSH runtime with --no-open, verify the startup URL, PID or command line, profile, resolved plugin path, and changed behavior, stop the test instance, and confirm the port is released; distinguish port isolation from DSH_HOME isolation.",
+      "assertions": ["does not start, stop, restart, or replace services on 3079 or 3080", "uses an available alternate loopback port", "verifies actual runtime behavior and process evidence", "closes the test process and confirms port release", "distinguishes port isolation from DSH_HOME isolation"]
     }
   ]
 }

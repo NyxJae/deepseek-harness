@@ -86,7 +86,7 @@ Status: proposed
 
 - 从官方 `packages/client/ui-settings-general/src/client/SettingsRoot.tsx` 与 `SettingsRoot.module.css` 开始。先保留官方设置 section 顺序、标签、`ConnectionIndicator`、关闭行为与 roster 内容，再增加窄屏标题、横向 section 导航、安全区域尺寸和单列选项布局。
 - 比较官方对话框／菜单键盘行为与本地实现。只把仍缺失的打开聚焦、模态 Tab 限制、嵌套 dialog/menu Escape 所有权、ArrowUp/ArrowDown/Home/End 导航、跳过禁用项以及打开者焦点恢复迁移到当前归属，包括该行为仍由 `packages/client/ui-primitives/src/Menu.tsx` 负责时的 primitive 修改。
-- 接受上游删除 `packages/client/ui-agent-preset/src/client/AgentPresetRow.module.css`。不得重建 `AgentPresetRow` 或旧 General 设置入口。把仍有价值的响应式卡片规则适配到 `AgentPresetSection.module.css` 与官方 roster 组件。
+- 接受上游移除 ui-agent-preset 中的 `AgentPresetRow` 样式表。把仍有价值的响应式卡片规则适配到现有的 `packages/client/ui-agent-preset/src/client/AgentPresetSection.module.css` 与官方 roster 组件。
 - 更新 `settings-root.client.spec.tsx`、设置组件测试、菜单 primitive 测试、preset section 测试、`apps/web/tests/settings-chrome.e2e.ts` 以及受影响的两个设置预期输出文件，并以官方 alpha.2 内容为准。
 
 ### 阶段 3：模型菜单与共享图片查看器

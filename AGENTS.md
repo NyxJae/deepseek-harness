@@ -88,15 +88,16 @@ If a required `gh`, `pnpm`, build, test, or generator command fails because the 
 
 ### Run relevant checks locally
 
-Run checks before pushes via [dsh-pre-push-checks](.agents/skills/dsh-pre-push-checks/SKILL.md); report only commands run. After `gh stack sync`, validate immediately; do not merge before checks pass.
+Run [dsh-pre-push-checks](.agents/skills/dsh-pre-push-checks/SKILL.md) before pushes; after `gh stack sync`, validate before merging and report commands run.
 
-- Match evidence to the surface: focused behavior tests, model/user-output snapshots, `doc-sync` for docs, built smokes for published paths, and real-API e2e for providers.
-- Never default to the full suite or repeat a passing check for commit or push. CI owns exhaustive coverage and the platform matrix; rehearse all locally only by explicit request, for CI diagnosis, or for an irreducibly repository-wide change.
-- After syncing upstream into `local-use`, run the full `pnpm run build`; do not replace it with a targeted package build.
-- `test:coverage`, not `test`, is the CI coverage gate ([why](docs/testing.md)).
+- Match evidence to the surface: focused tests, snapshots, `doc-sync`, built smokes, or real-API e2e.
+- Avoid full-suite or duplicate checks; CI owns exhaustive coverage and platform matrix. Rehearse broadly only for explicit requests, CI diagnosis, or repository-wide changes.
+- After syncing upstream into `local-use`, run the full `pnpm run build`.
+- CI coverage uses `test:coverage`, not `test` ([why](docs/testing.md)).
+- **Protected Web ports:** `3079`/`3080` are user-managed; test DSH on another loopback port ([details](.agents/skills/dsh-plugin-development/SKILL.md#protected-web-ports-and-live-verification)).
 ## Secrets / .env
 
-Real-API tests and demos read `DEEPSEEK_API_KEY`, optional `DEEPSEEK_BASE_URL`, and root `.env`. cordis.yml allows `!!js` (never `!js`) under plugin `config` and entry `disabled`; other metadata stays literal, so conditional composition also uses overlays ([primer](docs/cordis-primer.md#loader-configuration)). Never commit credentials. CI e2e skips without a key; [testing.md](docs/testing.md) owns key policy.
+Real-API tests/demos read `DEEPSEEK_API_KEY`, optional `DEEPSEEK_BASE_URL`, and root `.env`. In cordis.yml, `!!js` (never `!js`) is allowed only under plugin `config` and entry `disabled`; other metadata stays literal, so conditional composition uses overlays ([primer](docs/cordis-primer.md#loader-configuration)). Never commit credentials; CI e2e skips without a key, and [testing.md](docs/testing.md) owns key policy.
 
 ## Conventions
 

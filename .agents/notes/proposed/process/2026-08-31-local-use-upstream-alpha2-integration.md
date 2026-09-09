@@ -86,7 +86,7 @@ This strategy preserves official first-parent history and prior local ancestry w
 
 - Start from official `packages/client/ui-settings-general/src/client/SettingsRoot.tsx` and `SettingsRoot.module.css`. Preserve the official settings section order, labels, `ConnectionIndicator`, close behavior, and roster content before adding the narrow-screen title, horizontal section navigation, safe-area sizing, and single-column option layouts.
 - Compare official dialog and menu keyboard behavior with the local implementation. Port only missing focus-on-open, modal Tab containment, nested dialog/menu Escape ownership, ArrowUp/ArrowDown/Home/End navigation, disabled-item skipping, and opener restoration into the current owner, including `packages/client/ui-primitives/src/Menu.tsx` when that primitive still owns the behavior.
-- Accept the upstream deletion of `packages/client/ui-agent-preset/src/client/AgentPresetRow.module.css`. Do not re-create `AgentPresetRow` or the old General-settings entry. Adapt any still-useful responsive card rules to `AgentPresetSection.module.css` and official roster components.
+- Accept the upstream removal of the `AgentPresetRow` stylesheet from `ui-agent-preset`. Adapt any still-useful responsive card rules to the existing `packages/client/ui-agent-preset/src/client/AgentPresetSection.module.css` and official roster components.
 - Update `settings-root.client.spec.tsx`, settings component tests, menu primitive tests, preset section tests, `apps/web/tests/settings-chrome.e2e.ts`, and the two affected settings expected-output files from official alpha.2 content.
 
 ### Phase 3: model menu and shared image viewer
