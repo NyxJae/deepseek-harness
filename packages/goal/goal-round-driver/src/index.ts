@@ -252,16 +252,14 @@ export function apply(ctx: Context): void {
   // One composite effect keeps the step fence installed until this
   // plugin's own scheduling tasks settle.
   ctx.effect(function* () {
-    if (ctx.get('jobs') !== undefined) {
-      ctx.inject(['jobs'], (jobsCtx) => {
-        jobsCtx.jobs.onJobsChanged((owner) => {
-          if (owner === undefined) return
-          const state = states.get(owner)
-          if (state === undefined || ctx.agents.get(owner.id) !== owner) return
-          requestDrive(state)
-        })
+    ctx.inject(['jobs'], (jobsCtx) => {
+      jobsCtx.jobs.onJobsChanged((owner) => {
+        if (owner === undefined) return
+        const state = states.get(owner)
+        if (state === undefined || ctx.agents.get(owner.id) !== owner) return
+        requestDrive(state)
       })
-    }
+    })
 
     function requestForParent(this: object): void {
       const parent = carrierKeyOf(this) as Agent | undefined

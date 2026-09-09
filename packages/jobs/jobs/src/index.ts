@@ -152,7 +152,6 @@ export abstract class JobRegistry extends Service {
   abstract onJobDone(listener: JobDoneListener): () => void
 
   /**
-  /**
    * Register an effect-scoped observer of visible-set changes. It fires after
    * every commit that changes what {@link list} returns for that owner —
    * registration, every stopping transition (including the one teardown

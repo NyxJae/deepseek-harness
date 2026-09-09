@@ -240,6 +240,33 @@ describe('same-session goal driving', () => {
     expect(test.adapter.requests).toHaveLength(1)
   })
 
+  it('wakes when Jobs mounts after the goal driver', async () => {
+    const ctx = new Context()
+    contexts.push(ctx)
+    await mountAgentLoopTestDependencies(ctx)
+    await ctx.plugin(GoalService)
+    await ctx.plugin(goalSession)
+    await ctx.plugin(AgentLoop, { agents: [] })
+    const adapter = new ScriptedAdapter([textResponse('after late job')])
+    ctx.llm.registerAdapter(['mock'], adapter)
+    const state: { owner?: Agent; active: boolean } = { active: true }
+    let changed: ((agent?: Agent) => void) | undefined
+    ctx.provide('jobs', {
+      hasActive: (candidate: Agent) => state.active && candidate === state.owner,
+      onJobsChanged: (listener: (agent?: Agent) => void) => { changed = listener; return () => {} },
+    } as never)
+    await Promise.resolve()
+    const agent = await ctx.agentLoop.create(SessionId('goal-session-late-jobs'), { provider: 'mock', model: 'mock' })
+    state.owner = agent
+    ctx.goals.create(agent, { objective: 'wait for late jobs', maxGoalRounds: 1 })
+    await Promise.resolve()
+    expect(adapter.requests).toHaveLength(0)
+    state.active = false
+    changed?.(agent)
+    await waitForGoal(ctx, agent, goal => goal?.phase === 'blocked')
+    expect(adapter.requests).toHaveLength(1)
+  })
+
   it('never adopts activation from an already-live driver and waits for explicit resume', async () => {
     const ctx = new Context()
     contexts.push(ctx)
