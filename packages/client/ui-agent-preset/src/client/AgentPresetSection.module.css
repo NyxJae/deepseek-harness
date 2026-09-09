@@ -198,9 +198,26 @@
   line-height: 1.4;
 }
 
-/* Placement only: the capsule geometry and palette come from `Tag`. */
+.badge,
+.inUse {
+  border-radius: 999px;
+  corner-shape: round;
+  padding: 1px 8px;
+  font-size: 11px;
+  line-height: 17px;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.badge {
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  color: var(--dsw-alias-label-tertiary);
+}
+
 .inUse {
   margin-left: auto;
+  background: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-bg-layer-3);
 }
 
 /* Bounded to four lines. A preset publishes its own description, so one long
@@ -448,4 +465,31 @@
 .creatorButton:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+@media (max-width: 640px) {
+  .cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cardHead {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .cardName {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .inUse {
+    margin-left: 0;
+  }
+
+  .cardFoot {
+    flex-wrap: wrap;
+  }
 }
