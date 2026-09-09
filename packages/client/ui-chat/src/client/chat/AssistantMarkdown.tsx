@@ -14,14 +14,15 @@ import css from './AssistantMarkdown.module.css'
  * @param protocol - `window.location.protocol` at render time.
  * @param origin - `window.location.origin` at render time.
  * @param value - The authored markdown destination, exactly as written.
- * @returns The API URL for an absolute POSIX path on an HTTP(S) page, or
- * undefined when the destination cannot be a Host-served local file
- * (non-HTTP transport such as Electron `file://`, protocol-relative or
- * relative destinations).
+ * @returns The API URL for a POSIX or Windows drive-letter absolute path on an
+ * HTTP(S) page, or undefined for non-HTTP transport, protocol-relative, or
+ * relative destinations.
  */
 export function localPathMediaUrl(protocol: string, origin: string, value: string): string | undefined {
   if (protocol !== 'http:' && protocol !== 'https:') return undefined
-  if (value.length === 0 || !value.startsWith('/') || value.startsWith('//')) return undefined
+  const isPosixAbsolute = value.startsWith('/') && !value.startsWith('//')
+  const isWindowsAbsolute = /^[A-Za-z]:[\\/]/.test(value)
+  if (!isPosixAbsolute && !isWindowsAbsolute) return undefined
   return `${origin}/api/file?path=${encodeURIComponent(value)}`
 }
 

@@ -29,11 +29,14 @@ describe('localPathMediaUrl', () => {
     expect(localPathMediaUrl('ws:', ORIGIN, '/tmp/graph.png')).toBeUndefined()
   })
 
-  it('keeps destinations that cannot be Host-served local files inert', () => {
+  it('maps Windows drive-letter paths and keeps other destinations inert', () => {
     expect(localPathMediaUrl('http:', ORIGIN, '')).toBeUndefined()
     expect(localPathMediaUrl('http:', ORIGIN, '//cdn.example.com/x.png')).toBeUndefined()
     expect(localPathMediaUrl('http:', ORIGIN, 'relative.png')).toBeUndefined()
-    expect(localPathMediaUrl('http:', ORIGIN, 'C:\\tmp\\x.png')).toBeUndefined()
+    expect(localPathMediaUrl('http:', ORIGIN, 'C:\\tmp\\x.png'))
+      .toBe(`${ORIGIN}/api/file?path=${encodeURIComponent('C:\\tmp\\x.png')}`)
+    expect(localPathMediaUrl('http:', ORIGIN, 'C:/tmp/x.png'))
+      .toBe(`${ORIGIN}/api/file?path=${encodeURIComponent('C:/tmp/x.png')}`)
   })
 
   it('encodes the full path including spaces', () => {
