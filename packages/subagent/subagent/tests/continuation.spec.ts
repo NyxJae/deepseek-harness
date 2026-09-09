@@ -3494,4 +3494,19 @@ describe('SubagentRuntime.interrupt', () => {
     hold.resolve(undefined)
     await drained
   })
+  it('reports live direct children only and clears after settlement', async () => {
+    const hold = Promise.withResolvers<undefined>()
+    const adapter = new GatedAdapter([{ chunks: textResponse('done'), gate: hold.promise }])
+    const { ctx, parent } = await setupWith(adapter)
+    const other = await ctx.agentLoop.create(SessionId('other-parent'), { provider: 'mock', model: 'mock' })
+    expect(ctx.subagents.hasPendingContinuations(parent)).toBe(false)
+    const started = await ctx.subagents.startContinuable(startSpec(parent))
+    await vi.waitFor(() => { expect(adapter.requests).toHaveLength(1) })
+    expect(ctx.subagents.hasPendingContinuations(parent)).toBe(true)
+    expect(ctx.subagents.hasPendingContinuations(other)).toBe(false)
+    const drained = ctx.subagents.drainContinuableChildren(parent, [started.childId])
+    hold.resolve(undefined)
+    await drained
+    expect(ctx.subagents.hasPendingContinuations(parent)).toBe(false)
+  })
 })

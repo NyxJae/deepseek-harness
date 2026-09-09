@@ -77,6 +77,14 @@ interface Harness {
   readonly agent: Agent
   readonly driver: Awaited<ReturnType<Context['plugin']>>
 }
+interface BackgroundHarness {
+  jobs?: {
+    hasActive(owner: Agent): boolean
+    onJobsChanged(listener: (owner?: Agent) => void): () => void
+  }
+  subagents?: { hasPendingContinuations(owner: Agent): boolean }
+}
+
 
 const contexts: Context[] = []
 
@@ -85,11 +93,13 @@ afterEach(async () => {
 })
 
 /** Mount a real loop with only its model scripted. */
-async function harness(script: ScriptEntry[]): Promise<Harness> {
+async function harness(script: ScriptEntry[], background?: BackgroundHarness): Promise<Harness> {
   const ctx = new Context()
   contexts.push(ctx)
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(GoalService)
+  if (background?.jobs !== undefined) ctx.provide('jobs', background.jobs as never)
+  if (background?.subagents !== undefined) ctx.provide('subagents', background.subagents as never)
   const driver = await ctx.plugin(goalSession)
   await ctx.plugin(AgentLoop, { agents: [] })
   const adapter = new ScriptedAdapter(script)
@@ -209,6 +219,25 @@ describe('same-session goal driving', () => {
     expect(requestText(test.adapter.requests[1]!)).toContain('Round: 2/2')
     expect(test.agent.session.snapshotEvents().flatMap(event =>
       event.type === 'request/header' ? [event.data.reason] : [])).toEqual(['initial', 'series'])
+  })
+  it('waits for an exact owner Job and wakes when it settles', async () => {
+    const state: { owner?: Agent; active: boolean } = { active: true }
+    let changed: ((agent?: Agent) => void) | undefined
+    const test = await harness([textResponse('after job')], {
+      jobs: {
+        hasActive: candidate => state.active && candidate === state.owner,
+        onJobsChanged: (listener) => { changed = listener; return () => {} },
+      },
+      subagents: { hasPendingContinuations: () => false },
+    })
+    state.owner = test.agent
+    test.ctx.goals.create(test.agent, { objective: 'wait for background work', maxGoalRounds: 1 })
+    await Promise.resolve()
+    expect(test.adapter.requests).toHaveLength(0)
+    state.active = false
+    changed?.(test.agent)
+    await waitForGoal(test.ctx, test.agent, goal => goal?.phase === 'blocked')
+    expect(test.adapter.requests).toHaveLength(1)
   })
 
   it('never adopts activation from an already-live driver and waits for explicit resume', async () => {
