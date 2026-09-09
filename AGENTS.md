@@ -2,9 +2,9 @@
 
 DeepSeek Harness is an all-plugin Cordis agent harness. Read [docs/architecture.md](docs/architecture.md) before changing `packages/`; follow [docs/AGENTS.md](docs/AGENTS.md) for documentation.
 
-## Pre-stable APIs and released Session data
+## Pre-release stance: foundation over blast radius
 
-Public APIs are pre-stable; update every consumer. Released Session JSONL follows [adjacent migration](.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.md): body reads may add a version-named successor but never move, overwrite, or delete committed generations; predecessors imply neither fallback nor downgrade support. SQLite domains use monotonic `SCHEMA_VERSION`.
+**Remove at the first tagged release.** Until then, prefer correct foundations to compatibility shims: rename or repackage freely and update every reference. Backends reject old on-disk formats. SQLite uses monotonic `SCHEMA_VERSION`; `dsh-session` keeps `SESSION_FORMAT_VERSION` at `0` with no compatibility promise.
 
 **Application launch.** Only `dsh` profiles launch supported Node apps; package bins, demos, and public SDK argv escapes are forbidden ([rule](docs/architecture.md#application-launch)).
 
@@ -48,12 +48,11 @@ packages/    @deepseek-ai/dsh-<pkg> workspaces at packages/<group>/<pkg>/
   experimental/ private prototypes excluded from official releases
   support/     dev/test infrastructure
   util/        zero-dependency utilities
-python/      Python SDK/runtime (see python/README.md)
-native/      @deepseek-ai/node-addon-system source of record (see native/README.md)
-benchmarks/  performance gates
+python/      Python SDK and bundled runtime (see python/README.md)
+native/      @deepseek-ai/node-addon-landlock-run source of record (see native/README.md)
 .agents/     Agent workflows and Agent Notes (`notes/`)
 docs/        architecture, generated catalogs, postmortems, cookbook (see docs/AGENTS.md)
-scripts/     gates and generators
+scripts/     repo gates and generators
 website/     VitePress projection of selected bilingual docs/ sources
 ```
 
@@ -89,15 +88,16 @@ If a required `gh`, `pnpm`, build, test, or generator command fails because the 
 
 ### Run relevant checks locally
 
-Run checks before pushes via [dsh-pre-push-checks](.agents/skills/dsh-pre-push-checks/SKILL.md); report only commands run. After `gh stack sync`, validate immediately; do not merge before checks pass.
+Run [dsh-pre-push-checks](.agents/skills/dsh-pre-push-checks/SKILL.md) before pushes; after `gh stack sync`, validate before merging and report commands run.
 
-- Match evidence to the surface: focused behavior tests, model/user-output snapshots, `doc-sync` for docs, built smokes for published paths, and real-API e2e for providers.
-- Never default to the full suite or repeat a passing check for commit or push. CI owns exhaustive coverage and the platform matrix; rehearse all locally only by explicit request, for CI diagnosis, or for an irreducibly repository-wide change.
-- `test:coverage`, not `test`, is the CI coverage gate ([why](docs/testing.md)).
-
+- Match evidence to the surface: focused tests, snapshots, `doc-sync`, built smokes, or real-API e2e.
+- Avoid full-suite or duplicate checks; CI owns exhaustive coverage and platform matrix. Rehearse broadly only for explicit requests, CI diagnosis, or repository-wide changes.
+- After syncing upstream into `local-use`, run the full `pnpm run build`.
+- CI coverage uses `test:coverage`, not `test` ([why](docs/testing.md)).
+- **Protected Web ports:** `3079`/`3080` are user-managed; test DSH on another loopback port ([details](.agents/skills/dsh-plugin-development/SKILL.md#protected-web-ports-and-live-verification)).
 ## Secrets / .env
 
-Real-API tests and demos read `DEEPSEEK_API_KEY`, optional `DEEPSEEK_BASE_URL`, and root `.env`. cordis.yml allows `!!js` (never `!js`) under plugin `config` and entry `disabled`; other metadata stays literal, so conditional composition also uses overlays ([primer](docs/cordis-primer.md#loader-configuration)). Never commit credentials. CI e2e skips without a key; [testing.md](docs/testing.md) owns key policy.
+Real-API tests/demos read `DEEPSEEK_API_KEY`, optional `DEEPSEEK_BASE_URL`, and root `.env`. In cordis.yml, `!!js` (never `!js`) is allowed only under plugin `config` and entry `disabled`; other metadata stays literal, so conditional composition uses overlays ([primer](docs/cordis-primer.md#loader-configuration)). Never commit credentials; CI e2e skips without a key, and [testing.md](docs/testing.md) owns key policy.
 
 ## Conventions
 
