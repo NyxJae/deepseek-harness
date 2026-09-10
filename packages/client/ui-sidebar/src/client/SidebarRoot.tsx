@@ -187,6 +187,17 @@ export function SidebarRoot({
       column.current?.querySelector<HTMLButtonElement>('button:not([disabled])')?.focus()
     }
   }, [mobile, mobileClosed])
+  useEffect(() => {
+    if (!mobile || collapsed) return
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      toggleSidebar()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => { document.removeEventListener('keydown', onKeyDown) }
+  }, [mobile, collapsed, toggleSidebar])
+
   return (
     <>
       {mobileClosed && (
