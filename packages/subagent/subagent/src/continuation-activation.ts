@@ -507,7 +507,6 @@ export class ContinuableActivationRegistry {
     } finally {
       this.wake(activation)
     }
-    activation.announced = true
     return message.id
   }
 
