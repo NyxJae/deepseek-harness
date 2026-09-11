@@ -5,6 +5,7 @@ import { apply as applyHost } from '../src/index.ts'
 import { apply, inject } from '../src/client/index.ts'
 import { ComposerAttachments } from '../src/client/ComposerAttachments.tsx'
 import { MessageImages } from '../src/client/MessageImages.tsx'
+import { MarkdownImage } from '../src/client/MarkdownImage.tsx'
 
 async function bench() {
   const ctx = new Context()
@@ -14,6 +15,7 @@ async function bench() {
     children: {
       'conversation.input.attachments': { kind: 'single', scope: 'session-maybe' },
       'conversation.message.images': { kind: 'single', scope: 'session' },
+      'conversation.message.markdown-image': { kind: 'single', scope: 'session' },
       'conversation.trajectory.images': { kind: 'single', scope: 'session' },
       'tool.call.images': { kind: 'single', scope: 'session' },
     },
@@ -47,6 +49,10 @@ describe('attachment plugin', () => {
       locale: 'conversation',
       component: MessageImages,
     }])
+    expect(ctx.slots.entries('conversation.message.markdown-image')).toMatchObject([{
+      locale: 'conversation',
+      component: MarkdownImage,
+    }])
 
     await fiber.dispose()
 
@@ -54,5 +60,6 @@ describe('attachment plugin', () => {
     expect(ctx.slots.entries('conversation.message.images')).toHaveLength(0)
     expect(ctx.slots.entries('conversation.trajectory.images')).toHaveLength(0)
     expect(ctx.slots.entries('tool.call.images')).toHaveLength(0)
+    expect(ctx.slots.entries('conversation.message.markdown-image')).toHaveLength(0)
   })
 })

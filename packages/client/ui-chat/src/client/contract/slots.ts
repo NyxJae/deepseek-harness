@@ -58,6 +58,15 @@ export interface ChatFileMentions {
    */
   forClosing(owner: TurnTailOwnerProps, sessionId: SessionId): MarkdownFileMentions | undefined
 }
+/** Owner input for one settled Markdown image presentation. */
+export interface MarkdownImageOwnerProps {
+  /** Authored Markdown destination. */
+  readonly destination: string
+  /** Final display URL after Markdown protocol and path resolution. */
+  readonly src: string
+  /** Authored alternative text. */
+  readonly alt: string
+}
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -197,6 +206,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * registration replaces the shipped gallery; without one, images are omitted.
      */
     'conversation.message.images': { kind: 'single'; scope: 'session'; owner: MessageImagesOwnerProps }
+    /**
+     * Renderer for one settled Markdown image after its source passes the
+     * Markdown protocol and local-path policy. Without an occupant, the default
+     * Markdown image element remains in use.
+     */
+    'conversation.message.markdown-image': { kind: 'single'; scope: 'session'; owner: MarkdownImageOwnerProps }
     /**
      * Command row keyed by the command name. The component receives the folded
      * command lifecycle and linked compaction when present. Reusing a key

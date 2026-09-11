@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { AssistantMarkdown, localPathMediaUrl } from '../src/client/chat/AssistantMarkdown.tsx'
+import { AssistantMarkdown, localPathMediaUrl, type AssistantMarkdownProps } from '../src/client/chat/AssistantMarkdown.tsx'
 import type { ChatNodeOwnerProps, ChatViewSlotProps } from '../src/client/contract/slots.ts'
 import type { AssistantBlock } from '../src/client/contract/snapshot.ts'
 
@@ -73,5 +73,30 @@ describe('AssistantMarkdown local-path images', () => {
     )
     expect(container.querySelector('img')).toBeNull()
     expect(container.textContent).toContain('diagram')
+  })
+  it('routes settled local images through the presentation slot with the final URL', () => {
+    const calls: Parameters<NonNullable<AssistantMarkdownProps['renderMarkdownImage']>>[0][] = []
+    const renderMarkdownImage: NonNullable<AssistantMarkdownProps['renderMarkdownImage']> = (input) => {
+      calls.push(input)
+      return <button type="button" data-testid="markdown-image-presentation">{input.alt}</button>
+    }
+    const { container } = render(
+      <AssistantMarkdown
+        blocks={[textBlock('See ![diagram](/tmp/graph.png).')]}
+        streaming={false}
+        renderMessageImages={renderMessageImages}
+        renderMarkdownImage={renderMarkdownImage}
+        t={t}
+      />,
+    )
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0]).toMatchObject({
+      destination: '/tmp/graph.png',
+      src: `${window.location.origin}/api/file?path=${encodeURIComponent('/tmp/graph.png')}`,
+      alt: 'diagram',
+    })
+    expect(container.querySelector('img')).toBeNull()
+    expect(container.querySelector('[data-testid="markdown-image-presentation"]')?.textContent).toBe('diagram')
   })
 })

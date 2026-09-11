@@ -1,5 +1,5 @@
 ---
-description: "对话 UI 的附件呈现：混合草稿附件栏、文档拖放目标、历史图片画廊与原图灯箱；供 Web 附件体验的用户与维护者阅读。"
+description: "对话 UI 的附件呈现：混合草稿附件栏、文档拖放目标、历史图片 gallery、稳定后的 Markdown 图片呈现与可缩放灯箱；供 Web 附件体验的用户与维护者阅读。"
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-本包渲染对话 UI 中与附件相关的一切：composer 下的一条有序草稿附件栏、全视口拖放提示层、Chat、Trajectory 与工具结果中的长期保留的图片，以及查看原图的灯箱。附件数据、上传状态、图片加载与回调来自声明这些 slot 的持有方。需要 DeepSeek Chat 风格的附件体验时选择它。
+本包渲染对话 UI 中与附件相关的一切：composer 下的一条有序草稿附件栏、全视口拖放提示层、Chat、Trajectory 与工具结果中的长期保留图片，以及稳定后的本地 Markdown 图片 source URL 呈现。附件记录使用附件服务提供的 normalized bytes；Markdown 文件路由图片保留 Host 提供的 source URL。附件数据、上传状态、图片加载与回调来自声明这些 slot 的持有方。需要 DeepSeek Chat 风格的附件体验时选择它。
 
 ## 目录
 
@@ -25,15 +25,15 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-与 [`ui-conversation`](../ui-conversation/README.zh.md) 一起挂载本插件，工具结果需要图片图库时也要挂载 [`ui-tool`](../ui-tool/README.zh.md)。插件等待这些 slot 的声明，并把组件注册进去。用户会看到混合草稿附件栏、带上传控件的 DeepSeek Web 文件卡、带限制说明的拖放遮罩、按数量定尺寸的消息图片、工具卡片图库，以及支持 Escape、遮罩和关闭按钮的灯箱。
+与 [`ui-conversation`](../ui-conversation/README.zh.md) 一起挂载本插件，工具结果需要图片图库时也要挂载 [`ui-tool`](../ui-tool/README.zh.md)。插件等待这些 slot 的声明，并把组件注册进去；它还注册稳定后的 Chat Markdown 图片呈现。用户会看到混合草稿附件栏、带上传控件的 DeepSeek Web 文件卡、带限制说明的拖放遮罩、按数量定尺寸的消息图片、保持自然响应尺寸的本地 Markdown 图片、工具卡片图库，以及支持 Escape、遮罩和关闭按钮的灯箱。
 
 ### 草稿附件
 
 图片与通用文件按选择顺序进入同一条不换行的横向附件栏。所有条目均为 64px 高：图片是 64px 方形缩略图，通用文件是 240px 宽的 DeepSeek Web 卡片，带 16px 圆角、蓝色渐变文档图标、文件名，以及大写扩展名与字节大小。溢出隐藏时由边缘箭头翻页，滚动条保持隐藏，新增条目会滚动到栏尾展示。文件上传时图标位置显示 spinner，传输层报告字节时显示进度，首次报告前使用不定态进度条；失败时显示重试。移除按钮在悬停或键盘聚焦时出现，在触摸设备上保持可见。单击图片会打开原图。
 
-### 消息图片与灯箱
+### 消息图片与 Markdown 图片
 
-Chat 中的一条用户消息把文件与图片放在同一个靠右、可换行的排列中，并保持来源顺序。消息仅有一张图片且没有其他附件时，图片按长边 240px 渲染（宽高比钳制在 [0.25, 4]，从不放大）；消息有多个附件时，每张图片显示为固定 64px 方块，与 240×64px 文件卡同排。加载完成的图片单击打开文档级灯箱；加载失败则显示重试控件。灯箱锁定背景滚动、把 Tab 焦点限制在自身内，并支持适配／重置、缩放控件、以指针为中心的滚轮缩放、指针拖动、触摸捏合、双击缩放、`+`／`-`／`0`、Escape 与打开控件焦点恢复。
+Chat 中的一条用户消息把文件与图片放在同一个靠右、可换行的排列中，并保持来源顺序。消息仅有一张图片且没有其他附件时，图片按长边 240px 渲染（宽高比钳制在 [0.25, 4]，从不放大）；消息有多个附件时，每张图片显示为固定 64px 方块，与 240×64px 文件卡同排。加载完成的图片单击打开文档级灯箱；加载失败则显示重试控件。稳定后的本地 Markdown 图片保留其 source URL，按自然响应尺寸渲染，并在灯箱中打开同一个 Host 提供的 URL。灯箱锁定背景滚动、把 Tab 焦点限制在自身内，并支持适配／重置、缩放控件、以指针为中心的滚轮缩放、指针拖动、触摸捏合、双击缩放、`+`／`-`／`0`、Escape 与打开控件焦点恢复。
 
 ### 拖放遮罩
 
@@ -47,13 +47,14 @@ Chat 中的一条用户消息把文件与图片放在同一个靠右、可换行
 <details>
 <summary>实现细节——点击展开</summary>
 
-插件通过 `ctx.slots.inject` 等待 `conversation.input.attachments`、`conversation.message.images`、`conversation.trajectory.images` 与 `tool.call.images`。随后它注册 composer rail、文档拖放目标、供 Chat、Trajectory 与工具结果共用的历史图片 gallery，以及原图灯箱。呈现组件仅依赖 props：slot 持有方提供附件数据、图片加载、回调与语言包翻译器；包入口不导出任何组件。
+插件通过 `ctx.slots.inject` 等待 `conversation.input.attachments`、`conversation.message.images`、`conversation.message.markdown-image`、`conversation.trajectory.images` 与 `tool.call.images`。随后它注册 composer rail、文档拖放目标、供 Chat、Trajectory 与工具结果共用的历史图片 gallery，以及稳定后的 Chat Markdown 图片呈现。呈现组件仅依赖 props：slot 持有方提供附件数据、图片加载、回调与语言包翻译器；包入口不导出任何组件。
 
 | 文件 | 职责 |
 |---|---|
 | [`src/client/ComposerAttachments.tsx`](src/client/ComposerAttachments.tsx) | 有序图片／文件栏＋拖放遮罩的组装 |
 | [`src/AttachmentRail.tsx`](src/AttachmentRail.tsx) | 附件横向溢出、滚轮转换、边缘箭头 |
 | [`src/client/MessageImages.tsx`](src/client/MessageImages.tsx) | 每消息画廊＋灯箱的组装 |
+| [`src/client/MarkdownImage.tsx`](src/client/MarkdownImage.tsx) | 自然尺寸 Markdown 图片＋source URL 灯箱 |
 | [`src/MessageImage.tsx`](src/MessageImage.tsx) | 单图尺寸、加载／重试、点击打开；本地提交回显预览直接显示其 object URL |
 | [`src/ImageLightbox.tsx`](src/ImageLightbox.tsx) | 铺在共享遮罩上的文档级模态预览 |
 | [`src/DropOverlay.tsx`](src/DropOverlay.tsx) | 不接收指针事件的拖放提示 portal |
@@ -89,7 +90,7 @@ Chat 中的一条用户消息把文件与图片放在同一个靠右、可换行
 
 这些限制界定了当前附件功能范围。它们是包约束，不是通用图片查看器对比或任务积压。
 
-- **源文件归属 Session Controller**——本包只呈现耐久引用及加载／错误状态；本地 Markdown 图片的接纳、路径授权和回放耐久性由 `api-session-controller` 与 `ui-chat` 拥有。
+- **源文件归属 Session Controller**——本包只呈现耐久附件引用及稳定后的 Markdown source URL。附件 normalized 仍由附件服务负责；本地 Markdown 路径解析、文件授权和回放耐久性由 `api-session-controller` 与 `ui-chat` 拥有。
 
 <a id="dev-note"></a>
 ### 开发备注

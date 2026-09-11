@@ -153,6 +153,15 @@ export interface MarkdownPathImages {
    */
   resolve(value: string): string | undefined
 }
+/** A settled image presentation owner may replace after URL policy succeeds. */
+export interface MarkdownImageRenderer {
+  /**
+   * Render one displayable image source.
+   * @param input - authored destination, final display URL, and alternative text.
+   * @returns replacement content, or undefined to keep the default image element.
+   */
+  render(input: { readonly destination: string; readonly src: string; readonly alt: string }): ReactNode | undefined
+}
 
 /**
  * File-mention affordance for inline code: the owner resolves an authored
@@ -184,6 +193,8 @@ export interface MarkdownRenderContext {
   readonly fileMentions: MarkdownFileMentions | undefined
   /** Local-path image vocabulary; absent wherever no rewriting owner exists. */
   readonly pathImages: MarkdownPathImages | undefined
+  /** Settled image presentation owner; absent during streaming renders. */
+  readonly imageRenderer: MarkdownImageRenderer | undefined
   /** Inside an anchor's children: interactive mentions must not nest there. */
   readonly inLink?: boolean
   /** Reference targets visible to this pass. */
@@ -567,9 +578,14 @@ function renderImage(url: string, alt: string, key: Key, context: MarkdownRender
   if (imageSrc === undefined) {
     return <span key={key} className={css.imageAlt}>{alt}</span>
   }
+  if (!context.streaming && context.inLink !== true) {
+    const replacement = context.imageRenderer?.render({ destination: url, src: imageSrc, alt })
+    if (replacement !== undefined && replacement !== null) {
+      return <Fragment key={key}>{replacement}</Fragment>
+    }
+  }
   return <MarkdownImage key={`${key}:${imageSrc}`} src={imageSrc} alt={alt} destination={url} />
 }
-
 /** Failed loads retain the authored alt or destination; a new source remounts the image. */
 function MarkdownImage({ src, alt, destination }: { src: string; alt: string; destination: string }): ReactNode {
   const [failed, setFailed] = useState(false)

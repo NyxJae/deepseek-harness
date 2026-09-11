@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MarkdownText } from './markdown-test-components.tsx'
-import type { MarkdownPathImages } from '../src/markdown/MarkdownText.tsx'
+import type { MarkdownImageRenderer, MarkdownPathImages } from '../src/markdown/MarkdownText.tsx'
 
 afterEach(cleanup)
 
@@ -100,5 +100,34 @@ describe('MarkdownText local-path images', () => {
     rerender(<MarkdownText text={LOCAL_IMAGE} pathImages={pathImages} />)
     expect(container.querySelector('img')?.getAttribute('src'))
       .toBe('https://cdn.example.com/graph.png')
+  })
+  it('lets a settled owner replace a displayable local image', () => {
+    const pathImages: MarkdownPathImages = { resolve: mapping }
+    const imageRenderer: MarkdownImageRenderer = {
+      render: ({ src, alt }) => <button type="button" data-testid="image-owner">{alt}:{src}</button>,
+    }
+    const { container } = render(
+      <MarkdownText text={LOCAL_IMAGE} pathImages={pathImages} imageRenderer={imageRenderer} />,
+    )
+
+    expect(container.querySelector('img')).toBeNull()
+    expect(container.querySelector('[data-testid="image-owner"]')?.textContent)
+      .toBe('diagram:https://cdn.example.com/graph.png')
+  })
+  it('keeps linked images as images instead of nesting a lightbox button', () => {
+    const pathImages: MarkdownPathImages = { resolve: mapping }
+    const imageRenderer: MarkdownImageRenderer = {
+      render: ({ alt }) => <button type="button" data-testid="image-owner">{alt}</button>,
+    }
+    const { container } = render(
+      <MarkdownText
+        text="[![diagram](/tmp/graph.png)](https://example.com)"
+        pathImages={pathImages}
+        imageRenderer={imageRenderer}
+      />,
+    )
+
+    expect(container.querySelector('[data-testid="image-owner"]')).toBeNull()
+    expect(container.querySelector('a img')?.getAttribute('src')).toBe('https://cdn.example.com/graph.png')
   })
 })

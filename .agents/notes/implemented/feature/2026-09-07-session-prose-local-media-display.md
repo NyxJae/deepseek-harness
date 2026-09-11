@@ -12,9 +12,9 @@ Assistant prose can reference an image by its filesystem path, but browsers cann
 
 Local media paths in Session prose render through a same-origin file route. This note owns the renderer vocabulary and its placement; [authenticated filesystem reads](2026-09-08-file-display-through-filesystem.md) owns the current serving policy and supersedes the workspace/media restrictions described below.
 
-`ui-primitives` owns the `MarkdownPathImages` vocabulary on `MarkdownText`. Like `fileMentions`, it applies only after a message settles so frozen streaming blocks cannot cache a vocabulary handler. The settled pass rewrites image destinations outside the remote-URL allowlist and emits only absolute `http(s)`, `blob`, or `data` results. Without a vocabulary, local destinations retain inert alt text. Failed loads replace the image with authored alt text, or its original destination when alt is empty; a different source can load again.
+`ui-primitives` owns the `MarkdownPathImages` and optional `MarkdownImageRenderer` vocabularies on `MarkdownText`. Like `fileMentions`, they apply only after a message settles so frozen streaming blocks cannot cache handlers. The path vocabulary rewrites local destinations to absolute `http(s)`, `blob`, or `data` URLs; the image renderer may replace a displayable source with owner-provided presentation. Without a path vocabulary, local destinations retain inert alt text. Failed loads replace the image with authored alt text, or its original destination when alt is empty.
 
-`ui-chat` supplies a page-stable `localPathMediaUrl` vocabulary through `AssistantMarkdown`. It maps absolute POSIX paths to `/api/file?path=…` on the page's origin. Relative and protocol-relative paths, Windows-style paths, and non-HTTP page transports such as Electron `file://` remain inert.
+`ui-chat` provides a page-stable `localPathMediaUrl` vocabulary through `AssistantMarkdown`, maps absolute POSIX or Windows drive-letter paths to `/api/file?path=…` on the page's origin, and sends settled local image sources through the optional Chat image-presentation slot. Relative and protocol-relative paths, `file://` destinations, and non-HTTP page transports remain inert.
 
 `session-controller` owns the `SessionMediaReferences` contribution beside `SessionFileReferences`. It registers through `connection.fetch`, which applies the same browser authentication and trust checks as `/api` RPC. The fixed same-origin endpoint gives the synchronous renderer a stable URL without an asynchronous capability negotiation.
 
@@ -34,10 +34,10 @@ Local media paths in Session prose render through a same-origin file route. This
 
 The Client vocabulary cannot bypass Host authentication or the filesystem provider. The original restricted route distinguished an existing outside-workspace path from an absent path, exposing existence even while refusing its bytes; the successor policy instead permits ordinary provider-readable files.
 
-Windows-style authored paths remain unsupported by the Client vocabulary. Trajectory and tool-card Markdown consumers do not supply this vocabulary, and audio/video Markdown nodes do not render players. These are renderer limitations, independent of the file route's readable MIME types.
+Windows drive-letter paths are supported by the Client vocabulary. The lightbox presentation is available only where the Chat image slot has an occupant; other Markdown consumers keep direct image rendering, and audio/video Markdown nodes do not render players.
 
 The archived [model-readable image paths](../../archived/feature/2026-08-21-model-readable-image-paths.md) note owns the model-facing behavior; this note owns user-facing display and does not supersede it.
 
 ## Testing
 
-Renderer tests cover settled and streaming gates, reference-style images, protocol rechecks, failed-load fallback, and replacement sources. Chat tests cover the vocabulary and component wiring. The browser scenario in `apps/web/tests/markdown-images.e2e.ts` boots the shipped Web composition with a seeded Session and checks actual loading and fallback text. A model-driven recorded Session round trip remains separate from this UI expectation; the successor note names current route coverage.
+Renderer tests cover settled and streaming gates, reference-style images, protocol rechecks, failed-load fallback, source replacement, and owner-provided presentation. Chat tests cover the path vocabulary, local-image presentation callback, and component wiring. The browser scenario in `apps/web/tests/markdown-images.e2e.ts` boots the shipped Web composition with a seeded Session and checks actual loading and fallback text. A model-driven recorded Session round trip remains separate from this UI expectation; the successor note names current route coverage.

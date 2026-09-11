@@ -1,7 +1,7 @@
 import { Fragment, memo, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { JsonBlock, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { MarkdownFileMentions, MarkdownPathImages } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownFileMentions, MarkdownImageRenderer, MarkdownPathImages } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatNodeOwnerProps, ChatViewSlotProps } from '../contract/slots.ts'
 import type { AssistantBlock } from '../contract/snapshot.ts'
 import { markdownLabels } from '../markdown-labels.ts'
@@ -33,6 +33,8 @@ export interface AssistantMarkdownProps {
   interrupted?: boolean | undefined
   /** Render consecutive image blocks through the attachment slot. */
   renderMessageImages: ChatNodeOwnerProps['renderMessageImages']
+  /** Render settled local Markdown images through the optional presentation slot. */
+  renderMarkdownImage?: MarkdownImageRenderer['render']
   /** Hide reasoning that belongs to the Turn-level process disclosure. */
   reasoningHidden?: boolean | undefined
   /** Reveal the owning Turn-level process disclosure. */
@@ -45,7 +47,7 @@ export interface AssistantMarkdownProps {
 
 /** Reasoning block as the Think variant summary row (figma 39:28304). */
 export const AssistantMarkdown = memo(function AssistantMarkdown({
-  blocks, streaming, interrupted, renderMessageImages,
+  blocks, streaming, interrupted, renderMessageImages, renderMarkdownImage,
   reasoningHidden = false, revealProcess, mentions, t,
 }: AssistantMarkdownProps) {
   // Stable per locale revision (t identity changes on switch): a fresh object
@@ -58,6 +60,14 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
     const { protocol, origin } = window.location
     return { resolve: value => localPathMediaUrl(protocol, origin, value) }
   }, [])
+  const imageRenderer = useMemo<MarkdownImageRenderer | undefined>(() => {
+    if (renderMarkdownImage === undefined) return undefined
+    return {
+      render: input => pathImages.resolve(input.destination) === undefined
+        ? undefined
+        : renderMarkdownImage(input),
+    }
+  }, [pathImages, renderMarkdownImage])
   const last = blocks.length - 1
   // Tool-call heads render as tool rows in the chat view's grouping pass, so
   // a node that is only those heads (or empty) would paint an empty root
@@ -80,6 +90,7 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
             labels={labels}
             fileMentions={mentions}
             pathImages={pathImages}
+            imageRenderer={imageRenderer}
           />,
         )
         break
