@@ -92,18 +92,35 @@ function mountShell({ collapsed = false, width = 300, mobile = false }: { collap
 }
 
 describe('SidebarRoot shell', () => {
-  it('routes New Session (capsule + wordmark) and the column toggle', () => {
+  it('uses the brand as the collapse control and keeps New Session separate', () => {
     const b = mountShell()
     expect(screen.getByTestId('custom-brand-mark')).toBeTruthy()
     expect(screen.getByTestId('custom-brand-name')).toBeTruthy()
-    // Expanded, both the wordmark and the capsule start a session.
-    const starters = screen.getAllByRole('button', { name: 'New session' })
-    expect(starters).toHaveLength(2)
-    for (const button of starters) fireEvent.click(button)
-    expect(b.startSession).toHaveBeenCalledTimes(2)
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+
+    const brand = screen.getByTestId('custom-brand-mark').closest('button')
+    if (brand === null) throw new Error('brand control was not rendered')
+    expect(brand.getAttribute('aria-label')).toBe('Collapse sidebar')
+    expect(screen.getAllByRole('button', { name: 'New session' })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'New session' }))
+    expect(b.startSession).toHaveBeenCalledOnce()
+
+    fireEvent.click(brand)
     expect(b.toggleSidebar).toHaveBeenCalledOnce()
   })
+  it('returns focus to the rail toggle after desktop brand collapse', () => {
+    vi.useFakeTimers()
+    const b = mountShell()
+    const brand = screen.getByTestId('custom-brand-mark').closest('button')
+    if (brand === null) throw new Error('brand control was not rendered')
+
+    brand.focus()
+    fireEvent.click(brand)
+    b.rerender({ collapsed: true })
+    vi.advanceTimersByTime(200)
+
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open sidebar' }))
+  })
+
 
   it('renders generic brand fallbacks when no package fills the slots', () => {
     vi.stubEnv('DSH_CLIENT_COMMIT_HASH', '0123456')
@@ -195,7 +212,7 @@ describe('SidebarRoot shell', () => {
     fireEvent.click(trigger)
     expect(b.toggleSidebar).toHaveBeenCalledOnce()
     b.rerender({ collapsed: false })
-    expect(screen.getAllByRole('button', { name: 'Collapse sidebar' })).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: 'Collapse sidebar' })).toHaveLength(3)
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(b.toggleSidebar).toHaveBeenCalledTimes(2)
     b.rerender({ collapsed: true })

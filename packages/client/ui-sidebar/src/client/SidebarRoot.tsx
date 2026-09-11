@@ -165,6 +165,7 @@ export function SidebarRoot({
   const buildVersion = localBuildVersion()
   const mobileClosed = mobile && collapsed
   const mobileTrigger = useRef<HTMLButtonElement>(null)
+  const railToggle = useRef<HTMLButtonElement>(null)
   const wasMobile = useRef(mobile)
   const mobileDrawerWasClosed = useRef(mobileClosed)
   useLayoutEffect(() => {
@@ -237,14 +238,17 @@ export function SidebarRoot({
         onPointerLeave={() => { armLinger() }}
       >
         <div className={css.logoRow}>
-          {/* Expanded, the brand doubles as a New Session shortcut; the
-            collapsed rail's logo is the expand toggle below instead. */}
+          {/* The wide brand is the sidebar collapse control; the separate new-session
+            action below owns session creation. */}
           {wide && (
             <button
               type="button"
               className={clsx(css.brand, css.wide)}
-              aria-label={t('session.new.label')}
-              onClick={() => { startSession() }}
+              aria-label={t('toggle.collapse')}
+              onClick={() => {
+                railToggle.current?.focus()
+                toggleSidebar()
+              }}
             >
               <span className={css.brandIdentity} aria-hidden="true">
                 <span className={css.brandMark}>
@@ -269,6 +273,7 @@ export function SidebarRoot({
             icon (the expand affordance, figma sidebar-hover flow). */}
           <Tooltip label={collapsed ? t('toggle.open') : t('toggle.collapse')} delayMs={500}>
             <button
+              ref={railToggle}
               type="button"
               className={clsx(css.iconButton, css.toggle)}
               aria-label={collapsed ? t('toggle.open') : t('toggle.collapse')}

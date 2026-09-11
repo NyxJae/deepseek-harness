@@ -76,62 +76,64 @@ export function ConversationSessionHeader({
       {!hideChrome && (
         <>
           <div className={css.titleRow}>
-            <div className={css.titleCluster}>
-              <nav className={css.crumbs} aria-label={t('session.hierarchy')}>
-                {ancestry.map((summary, index) => {
-                  const last = index === ancestry.length - 1
-                  const title = (
-                    <button
-                      type="button"
-                      className={clsx(
-                        css.crumb,
-                        summary.subagent && css.crumbSubagent,
-                        last && css.crumbCurrent,
-                      )}
-                      disabled={last}
-                      onClick={() => { open(summary.id) }}
-                    >
-                      {summary.displayTitle}
-                    </button>
-                  )
-                  const lineage = last || summary.subagent
-                  const lineageOwner = {
-                    lineageSessionId: summary.id,
-                    displayTitle: summary.displayTitle,
-                    ...last ? {} : { openTitle: () => { open(summary.id) } },
-                  }
-                  return (
-                    <span key={summary.id} className={css.crumbSeg}>
-                      {index > 0 && <span className={css.crumbSep}>/</span>}
-                      {lineage
-                        ? summary.subagent
-                          ? renderSlot(
-                            'conversation.session.header.lineage',
-                            lineageOwner,
-                            { fallback: title },
-                          )
-                          : (
-                            <>
-                              {title}
-                              {renderSlot(
-                                'conversation.session.header.lineage',
-                                lineageOwner,
-                                { fallback: null },
-                              )}
-                            </>
-                          )
-                        : title}
-                    </span>
-                  )
-                })}
-                {ancestry.length === 0 && <span className={css.crumbCurrent}>{sessionId}</span>}
-              </nav>
-              <div className={css.headerActions}>
-                {renderSlot('conversation.session.header.actions', {})}
+            <div className={css.titleScroller} data-conversation-header-scroller="">
+              <div className={css.titleCluster}>
+                <nav className={css.crumbs} aria-label={t('session.hierarchy')}>
+                  {ancestry.map((summary, index) => {
+                    const last = index === ancestry.length - 1
+                    const title = (
+                      <button
+                        type="button"
+                        className={clsx(
+                          css.crumb,
+                          summary.subagent && css.crumbSubagent,
+                          last && css.crumbCurrent,
+                        )}
+                        disabled={last}
+                        onClick={() => { open(summary.id) }}
+                      >
+                        {summary.displayTitle}
+                      </button>
+                    )
+                    const lineage = last || summary.subagent
+                    const lineageOwner = {
+                      lineageSessionId: summary.id,
+                      displayTitle: summary.displayTitle,
+                      ...last ? {} : { openTitle: () => { open(summary.id) } },
+                    }
+                    return (
+                      <span key={summary.id} className={css.crumbSeg}>
+                        {index > 0 && <span className={css.crumbSep}>/</span>}
+                        {lineage
+                          ? summary.subagent
+                            ? renderSlot(
+                              'conversation.session.header.lineage',
+                              lineageOwner,
+                              { fallback: title },
+                            )
+                            : (
+                              <>
+                                {title}
+                                {renderSlot(
+                                  'conversation.session.header.lineage',
+                                  lineageOwner,
+                                  { fallback: null },
+                                )}
+                              </>
+                            )
+                          : title}
+                      </span>
+                    )
+                  })}
+                  {ancestry.length === 0 && <span className={css.crumbCurrent}>{sessionId}</span>}
+                </nav>
+                <div className={css.headerActions}>
+                  {renderSlot('conversation.session.header.actions', {})}
+                </div>
               </div>
-            </div>
-            <div className={css.headerUtilities}>
-              {renderSlot('conversation.session.header.utilities', {})}
+              <div className={css.headerUtilities}>
+                {renderSlot('conversation.session.header.utilities', {})}
+              </div>
             </div>
             <div className={css.headerCorner} data-conversation-header-corner="">
               {renderSlot('conversation.session.header.corner', {})}
