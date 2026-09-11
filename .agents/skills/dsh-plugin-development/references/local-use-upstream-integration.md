@@ -194,12 +194,17 @@ git diff --name-status $MERGE_BASE $OLD_LOCAL -- packages/client/ui-attachment
 | 本地 Markdown 图片旧 resolver/RPC | 默认删除旧架构 | 官方已经通过 `MarkdownPathImages -> /api/file -> ctx.fs` 读取 Host 文件，不恢复旧 462 行 resolver |
 | Windows Markdown 本地路径 | 建议保留为极薄补丁 | 只扩展前端绝对路径识别，不重建 durable image RPC |
 | Advanced ImageLightbox | 保留并适配 | 保留缩放、拖拽、触摸、键盘、focus trap、scroll lock；以官方当前 labels/API 为底 |
-| Mobile sidebar overlay | 保留并适配 | 使用当前官方 `rightbar`、`viewportWidth`、`narrowExpanded`，不要恢复旧 `details` 架构 |
+| Mobile sidebar overlay | 保留并适配 | 使用当前官方 `rightbar`、`viewportWidth`、`narrowExpanded`，不要恢复旧 `details` 架构；窄屏时 AppFrame grid 第一 track 始终为 `0px`，SidebarRoot fixed drawer 的绘制宽度独立于 grid 占位，desktop 关闭 rail 仍为 `56px` |
 | Responsive settings | 保留缺失的响应式布局 | 官方 DOM/section roster/labels 为准，只补 mobile CSS 和仍缺失的 focus 行为 |
 | Settings/Menu keyboard focus | 只补官方仍缺的部分 | 不覆盖官方已经增加的 portal、焦点恢复、方向键行为 |
 | Goal background-aware continuation | 保留并适配 | Jobs 用 Agent 对象身份判断；Subagent 适配当前 `ContinuableActivationRegistry` |
 | `dsh-plugin-development` 自用 Skill | 保留 | 作为本地开发流程，不修改官方运行时架构 |
 | 旧 alpha.2 集成 proposal / 旧生成物 | 不迁 | 旧历史由 Git 祖先保留，不把过期说明、版本、lockfile、generated output 再带进新树 |
+### Mobile overlay acceptance
+
+当 viewport 小于 `SIDEBAR_AUTO_COLLAPSE` 时，AppFrame 的 CSS grid 第一 track 在 sidebar 关闭和打开两种状态都必须是 `0px`；SidebarRoot 以独立的 fixed drawer width 绘制打开态，不能把 drawer 绘制宽度当作 grid 占位。desktop 关闭态仍使用 `SIDEBAR_COLLAPSED` 的 `56px` rail。
+
+Mobile sidebar 的 Escape listener 只在 `event.key === 'Escape'` 且 `event.defaultPrevented === false` 时关闭 drawer；嵌套 menu、settings 或其他 overlay 已消费的 Escape 必须保持 sidebar 状态。AppFrame tests 必须覆盖窄屏关闭/打开时第一 track 为 `0px`，SidebarRoot tests 必须覆盖普通 Escape 与 `preventDefault()` 负例。
 
 ## 9. Phase A：Advanced ImageLightbox
 

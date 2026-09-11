@@ -163,10 +163,12 @@ export function AppFrame({
     ? 0
     : layoutInfo.sidebar === 0 ? SIDEBAR_DEFAULT : layoutInfo.sidebar
   const rightbarPreference = layoutInfo.rightbar ?? viewport * RIGHTBAR_DEFAULT_RATIO
-  // Opening on a narrow frame collapses the left sidebar. Eligibility must
-  // include that space before the occupant's first shown report arrives.
-  const normal = computeColumns(viewport, !layoutInfo.rightbarShown && narrow ? 0 : sidebarPreference, rightbarPreference)
-  const cols = computeColumns(viewport, sidebarPreference, layoutInfo.rightbarTrack ? rightbarPreference : 0)
+  // Mobile sidebar is a fixed overlay; its drawer width stays separate from grid geometry.
+  const gridSidebar = narrow ? 0 : sidebarPreference
+  const columnOptions = narrow ? { sidebarTrack: 'none' as const } : undefined
+  const normal = computeColumns(viewport, gridSidebar, rightbarPreference, columnOptions)
+  const cols = computeColumns(viewport, gridSidebar, layoutInfo.rightbarTrack ? rightbarPreference : 0, columnOptions)
+  const sidebarWidth = narrow ? sidebarPreference : cols.sidebar
   const colsRef = useRef(cols)
   colsRef.current = cols
   const rightbarWidth = useRef(normal.rightbar)
@@ -192,9 +194,9 @@ export function AppFrame({
   const productTitle = process.env.DSH_CLIENT_TITLE ?? t('brand.localBuild')
   const sidebar = useMemo(() => renderSlot('sidebar', {
     collapsed: sidebarCollapsed,
-    width: cols.sidebar,
+    width: sidebarWidth,
     mobile: narrow,
-  }), [renderSlot, sidebarCollapsed, cols.sidebar, narrow])
+  }), [renderSlot, sidebarCollapsed, sidebarWidth, narrow])
   const main = useMemo(() => (
     <MainPanel usePanelInfo={usePanelInfo} renderSlot={renderSlot} />
   ), [usePanelInfo, renderSlot])
@@ -231,8 +233,8 @@ export function AppFrame({
       <div className={css.overlayLayer} data-shell-overlay>
         {overlays}
       </div>
-      {/* The collapsed rail is fixed-width: no resize handle while closed. */}
-      {!sidebarCollapsed && <DragHandle side="sidebar" left={cols.sidebar} onStart={onSidebarStart} onDrag={onSidebarDrag} onEnd={onDragEnd} />}
+      {/* Desktop sidebar resize handle; mobile drawer width is independent of the grid. */}
+      {!narrow && !sidebarCollapsed && <DragHandle side="sidebar" left={cols.sidebar} onStart={onSidebarStart} onDrag={onSidebarDrag} onEnd={onDragEnd} />}
       {layoutInfo.rightbarShown && !layoutInfo.rightbarFullscreen && normal.rightbar > 0 && (
         <DragHandle side="rightbar" left={viewport - normal.rightbar} onStart={onRightbarStart} onDrag={onRightbarDrag} onEnd={onDragEnd} />
       )}

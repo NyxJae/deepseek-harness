@@ -190,7 +190,7 @@ export function SidebarRoot({
   useEffect(() => {
     if (!mobile || collapsed) return
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return
+      if (event.key !== 'Escape' || event.defaultPrevented) return
       event.preventDefault()
       toggleSidebar()
     }

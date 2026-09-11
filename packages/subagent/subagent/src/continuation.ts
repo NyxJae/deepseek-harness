@@ -91,7 +91,11 @@ export class SubagentContinuationManager {
       (provider, childId, parent) => host.observeActivation(provider, childId, parent),
     )
   }
-  /** Return whether this exact parent has a live direct continuable child. */
+  /**
+   * Return whether this exact parent has a live direct continuable child.
+   * @param parent - Agent whose direct child ownership is checked.
+   * @returns whether a live direct continuable child is owned by `parent`.
+   */
   hasPendingContinuations(parent: Agent): boolean {
     return this.activations.hasPending(parent)
   }

@@ -201,4 +201,12 @@ describe('SidebarRoot shell', () => {
     b.rerender({ collapsed: true })
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open sidebar' }))
   })
+
+  it('keeps the mobile sidebar open when a nested overlay consumes Escape', () => {
+    const b = mountShell({ mobile: true })
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    event.preventDefault()
+    document.dispatchEvent(event)
+    expect(b.toggleSidebar).not.toHaveBeenCalled()
+  })
 })

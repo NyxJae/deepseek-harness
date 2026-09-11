@@ -281,7 +281,7 @@ export function ImageLightbox({ src, alt, labels, onClose }: {
           src={src}
           alt={alt}
           draggable={false}
-          style={{ transform: 'translate3d(' + transform.x + 'px, ' + transform.y + 'px, 0) scale(' + transform.scale + ')' }}
+          style={{ transform: `translate3d(${transform.x}px, ${transform.y}px, 0) scale(${transform.scale})` }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerEnd}

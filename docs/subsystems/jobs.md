@@ -198,6 +198,15 @@ abstract start(spec: JobStart): JobId
 abstract list(caller?: Agent): JobSnapshot[]
 
 /**
+ * Return whether the exact live owner has any `running` or `stopping` Job.
+ * Terminal Jobs never count, regardless of their `reported` flag; a replacement
+ * Agent with the same SessionId does not match the earlier owner object.
+ * @param owner - exact live Agent lifecycle to inspect.
+ * @returns whether one active Job is owned by that exact Agent.
+ */
+abstract hasActive(owner: Agent): boolean
+
+/**
  * Return a non-consuming snapshot without changing its read cursor or notice
  * state. Throws for an unknown or foreign job.
  * @param id - job to look up.
@@ -250,7 +259,6 @@ abstract wait(id: JobId, timeoutMs: number, caller?: Agent, signal?: AbortSignal
  */
 abstract onJobDone(listener: JobDoneListener): () => void
 
-/**
 /**
  * Register an effect-scoped observer of visible-set changes. It fires after
  * every commit that changes what {@link list} returns for that owner —
