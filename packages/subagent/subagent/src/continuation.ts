@@ -85,21 +85,14 @@ export class SubagentContinuationManager {
   constructor(
     private readonly ctx: Context,
     private readonly host: ContinuationHost,
+    maxActiveSubagents: () => number,
   ) {
     this.activations = new ContinuableActivationRegistry(
       ctx,
       (provider, childId, parent) => host.observeActivation(provider, childId, parent),
+      maxActiveSubagents,
     )
   }
-  /**
-   * Return whether this exact parent has a live direct continuable child.
-   * @param parent - Agent whose direct child ownership is checked.
-   * @returns whether a live direct continuable child is owned by `parent`.
-   */
-  hasPendingContinuations(parent: Agent): boolean {
-    return this.activations.hasPending(parent)
-  }
-
 
   /**
    * Start one continuable background child and resolve at initial inbox acceptance.

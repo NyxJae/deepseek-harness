@@ -18,11 +18,6 @@ describe('computeColumns', () => {
     expect(computeColumns(1920, 0, 0)).toEqual({ sidebar: 56, center: 1864, rightbar: 0 })
   })
 
-  it('leaves no sidebar track for a fixed overlay', () => {
-    expect(computeColumns(800, 0, 0, { sidebarTrack: 'none' })).toEqual({ sidebar: 0, center: 800, rightbar: 0 })
-    expect(computeColumns(800, 0, 360, { sidebarTrack: 'none' })).toEqual({ sidebar: 0, center: 440, rightbar: 360 })
-  })
-
   it('clamps sidebar preferences and limits the right panel to 70% of the frame', () => {
     expect(computeColumns(3000, 9999, 9999)).toEqual({ sidebar: 420, center: 480, rightbar: 2100 })
     expect(computeColumns(1920, 1, 1)).toEqual({ sidebar: 264, center: 1356, rightbar: 300 })

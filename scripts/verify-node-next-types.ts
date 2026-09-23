@@ -46,7 +46,7 @@ function workspacePackages(): WorkspacePackage[] {
 
 const declarationSpecifierPattern = /(?:from\s*|import\s*\(\s*|import\s+|declare\s+module\s*)["'](\.{0,2}(?:\/[^"']*)?)["']/g
 const hasExtension = /\.[^/.]+$/
-const directoryLinkType = process.platform === 'win32' ? 'junction' : 'dir'
+
 function relativeSpecifiersMissingExtensions(): string[] {
   const errors: string[] = []
   const files = [
@@ -84,7 +84,7 @@ function linkPackage(pkg: WorkspacePackage, nodeModules: string): void {
   const parts = pkg.name.split('/')
   const link = resolve(nodeModules, ...parts)
   mkdirSync(dirname(link), { recursive: true })
-  symlinkSync(pkg.dir, link, directoryLinkType)
+  symlinkSync(pkg.dir, link, 'dir')
 }
 
 const packages = workspacePackages()
@@ -117,7 +117,7 @@ try {
   if (existsSync(rootTypes)) {
     const typesDir = resolve(nodeModules, '@types')
     mkdirSync(typesDir, { recursive: true })
-    symlinkSync(rootTypes, resolve(typesDir, 'node'), directoryLinkType)
+    symlinkSync(rootTypes, resolve(typesDir, 'node'), 'dir')
   }
 
   writeFileSync(resolve(tmp, 'package.json'), `${JSON.stringify({ type: 'module', private: true }, null, 2)}\n`)

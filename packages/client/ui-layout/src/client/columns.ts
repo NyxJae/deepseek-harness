@@ -21,11 +21,6 @@ export const SIDEBAR_COLLAPSED = 56
  * LG breakpoint); a manual toggle below it re-expands over the squeezed center
  * (stores.ts narrowExpanded). */
 export const SIDEBAR_AUTO_COLLAPSE = 1024
-/** Closed-sidebar track policy for the column solver. */
-export interface ColumnOptions {
-  /** Use no grid track when a closed sidebar is rendered as a fixed overlay. */
-  sidebarTrack?: 'rail' | 'none'
-}
 /** Right column drag clamp floor. */
 export const RIGHTBAR_MIN = 300
 /** Maximum normal right panel width as a fraction of the frame. */
@@ -49,14 +44,13 @@ export function clampWidth(px: number, min: number, max: number): number {
  * @param viewport - available frame width in px.
  * @param sidebar - sidebar width preference in px (0 = closed).
  * @param rightbar - requested right panel width in px (0 = no track).
- * @param options - optional closed-sidebar track policy.
+ * @param collapsedWidth - track width of the closed sidebar; the default keeps
+ *   the icon rail, 0 hides the column entirely (macOS desktop).
  * @returns actual widths after shrinking or removing the right track; only
  *   without that track may the center fall below its minimum, down to zero.
  */
-export function computeColumns(viewport: number, sidebar: number, rightbar: number, options: ColumnOptions = {}): Columns {
-  const s = sidebar === 0
-    ? options.sidebarTrack === 'none' ? 0 : SIDEBAR_COLLAPSED
-    : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
+export function computeColumns(viewport: number, sidebar: number, rightbar: number, collapsedWidth = SIDEBAR_COLLAPSED): Columns {
+  const s = sidebar === 0 ? collapsedWidth : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
   const available = viewport - s - CENTER_MIN
   const r = rightbar === 0 || available < RIGHTBAR_MIN
     ? 0

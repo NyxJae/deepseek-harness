@@ -13,17 +13,18 @@
 
 import { memo, useMemo, useRef } from 'react'
 import type { ReactNode } from 'react'
+import clsx from 'clsx'
 import { IncrementalMarkdownParser } from './incremental.ts'
 import { parseGfm, parseGfmWithMath } from './parse.ts'
 import {
   collectReferenceTargets, createReferenceTargets, renderBlocks, renderFootnoteSection,
   wrapBlockChildren,
 } from './render.tsx'
-import type { MarkdownFileMentions, MarkdownImageRenderer, MarkdownLabels, MarkdownPathImages, MarkdownRenderContext, ReferenceTargets } from './render.tsx'
+import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages, MarkdownRenderContext, ReferenceTargets } from './render.tsx'
 import 'katex/dist/katex.min.css'
 import css from './MarkdownText.module.css'
 
-export type { MarkdownCodeLabels, MarkdownFileMentions, MarkdownImageRenderer, MarkdownLabels, MarkdownPathImages } from './render.tsx'
+export type { MarkdownCodeLabels, MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from './render.tsx'
 
 /** One settled full render: parse with math, resolve references, append the footnote section. */
 function renderSettled(
@@ -31,7 +32,6 @@ function renderSettled(
   labels: MarkdownLabels,
   fileMentions: MarkdownFileMentions | undefined,
   pathImages: MarkdownPathImages | undefined,
-  imageRenderer: MarkdownImageRenderer | undefined,
 ): ReactNode[] {
   const root = parseGfmWithMath(text)
   const targets = createReferenceTargets()
@@ -41,7 +41,6 @@ function renderSettled(
     labels,
     fileMentions,
     pathImages,
-    imageRenderer,
     targets,
     footnoteOrder: [],
     footnoteCounts: new Map(),
@@ -111,7 +110,6 @@ class StreamingRenderer {
         labels: this.labels,
         fileMentions: undefined,
         pathImages: undefined,
-        imageRenderer: undefined,
         targets: frameTargets,
         footnoteOrder: this.frozenFootnoteOrder,
         footnoteCounts: this.frozenFootnoteCounts,
@@ -131,7 +129,6 @@ class StreamingRenderer {
       labels: this.labels,
       fileMentions: undefined,
       pathImages: undefined,
-      imageRenderer: undefined,
       targets: frameTargets,
       footnoteOrder: [...this.frozenFootnoteOrder],
       footnoteCounts: new Map(this.frozenFootnoteCounts),
@@ -160,35 +157,43 @@ class StreamingRenderer {
  * identity discards the streaming render cache mid-message. `fileMentions`
  * links inline-code tokens its resolver recognizes as real files, and
  * `pathImages` rewrites image destinations that are local file paths into
- * displayable URLs its resolver vouches for. Both vocabularies and
- * `imageRenderer` apply only to settled renders, because a streaming message's
- * vocabulary is not final and frozen cached elements must not bake in handlers
- * that could go stale. The renderer receives the final display URL and may
- * replace it with owner-provided presentation.
- * @returns A GFM document with TeX math rendered through KaTeX; raw HTML,
- * relative links, and unsafe protocols are disabled, while absolute HTTP(S)
- * images render directly.
+ * displayable URLs its resolver vouches for. Those two vocabularies are the
+ * single streaming gate — they apply to settled renders only, because a
+ * streaming message's vocabulary is not final and frozen cached elements
+ * must not bake in handlers that could go stale. A surrounding
+ * `MarkdownDelegateProvider` can delegate ordinary HTTP(S) activation while
+ * modified clicks retain native behavior. `variant="compact"` uses secondary
+ * text sizing, uniform bold headings, and tight block spacing; the default
+ * `body` variant uses the full document typography.
+ * The provider's `openFile` enables local Markdown links in settled messages,
+ * including `#L24` and `#L24-L30` destinations (ranges open at their first line).
+ * @returns A GFM document with TeX math rendered through KaTeX; raw HTML and
+ * unsafe protocols are disabled. Local links without an opener remain text;
+ * absolute HTTP(S) images render directly.
  */
-export const MarkdownText = memo(function MarkdownText({ text, streaming = false, labels, fileMentions, pathImages, imageRenderer }: {
+export const MarkdownText = memo(function MarkdownText({
+  text, streaming = false, labels, fileMentions, pathImages, variant = 'body',
+}: {
   text: string
   streaming?: boolean
   labels: MarkdownLabels
   fileMentions?: MarkdownFileMentions | undefined
   pathImages?: MarkdownPathImages | undefined
-  imageRenderer?: MarkdownImageRenderer | undefined
+  variant?: 'body' | 'compact'
 }) {
   const streamRef = useRef<StreamingRenderer | null>(null)
   const streamLabelsRef = useRef<MarkdownLabels>(labels)
   const children = useMemo(() => {
     if (!streaming) {
       streamRef.current = null
-      return renderSettled(text, labels, fileMentions, pathImages, imageRenderer)
+      return renderSettled(text, labels, fileMentions, pathImages)
     }
     if (streamRef.current === null || streamLabelsRef.current !== labels) {
       streamRef.current = new StreamingRenderer(labels)
       streamLabelsRef.current = labels
     }
     return streamRef.current.render(text)
-  }, [text, streaming, labels, fileMentions, pathImages, imageRenderer])
-  return <div className={css.markdown}>{children}</div>
+  }, [text, streaming, labels, fileMentions, pathImages])
+  return <div className={clsx(css.markdown, variant === 'compact' && css.compact)}
+    data-markdown-variant={variant === 'compact' ? variant : undefined}>{children}</div>
 })

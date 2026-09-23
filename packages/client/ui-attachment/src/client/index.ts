@@ -7,7 +7,6 @@ import type {} from '@deepseek-ai/dsh-client-ui-tool/client'
 import type {} from '@deepseek-ai/dsh-client-ui-trajectory/client'
 import { ComposerAttachments } from './ComposerAttachments.tsx'
 import { MessageImages } from './MessageImages.tsx'
-import { MarkdownImage } from './MarkdownImage.tsx'
 
 /** Slot registry required by this presentation plugin. */
 export const inject = ['slots']
@@ -22,10 +21,6 @@ export function apply(ctx: ClientContext): void {
     name: 'conversation.message.images',
     locale: 'conversation',
   }, MessageImages))
-  ctx.slots.inject('conversation.message.markdown-image', () => ctx.slots.register({
-    name: 'conversation.message.markdown-image',
-    locale: 'conversation',
-  }, MarkdownImage))
   ctx.slots.inject('conversation.trajectory.images', () => ctx.slots.register({
     name: 'conversation.trajectory.images',
     locale: 'conversation',

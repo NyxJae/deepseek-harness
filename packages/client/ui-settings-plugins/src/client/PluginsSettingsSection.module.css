@@ -30,7 +30,6 @@
 
 .tab {
   position: relative;
-  flex: 0 0 auto;
   border: 0;
   padding: 7px 1px 9px;
   background: transparent;
@@ -38,7 +37,6 @@
   font: inherit;
   font-size: 13px;
   line-height: 20px;
-  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -86,12 +84,25 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-@media (max-width: 640px) {
-  .tabs {
-    gap: 16px;
-  }
+/* Configurable tab: the card list. */
 
-  .tabs::-webkit-scrollbar {
-    display: none;
-  }
+.configurable {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Preset detail page: the settings section over the same cards. */
+
+.presetSettings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.presetSettingsTitle {
+  margin: 0;
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 600;
 }

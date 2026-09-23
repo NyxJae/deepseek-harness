@@ -6,9 +6,6 @@
 import { isDeepStrictEqual } from 'node:util'
 import { FiberState } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
-import { carrierKeyOf } from '@deepseek-ai/dsh-scope'
-import type {} from '@deepseek-ai/dsh-jobs'
-import type {} from '@deepseek-ai/dsh-subagent'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { GoalMessageSource, GoalRef, GoalView } from '@deepseek-ai/dsh-goal'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
@@ -61,7 +58,7 @@ function sameRound(source: GoalMessageSource, round: RoundIdentity): boolean {
 }
 
 /** Compare the complete queued record to the driver's reservation. */
-function sameQueued(content: ContentBlock[], source: MessageSource, attempt: RoundAttempt): boolean {
+function sameQueued(content: readonly ContentBlock[], source: MessageSource, attempt: RoundAttempt): boolean {
   return isGoalRoundSource(source) && sameRound(source, attempt) && isDeepStrictEqual(content, attempt.content)
 }
 
@@ -102,21 +99,15 @@ export function apply(ctx: Context): void {
     return ctx.goals.get(state.agent)
   }
 
-  /** Whether this exact Agent owns ongoing Jobs or live continuable children. */
-  function hasOutstandingBackgroundWork(agent: Agent): boolean {
-    if (ctx.get('jobs')?.hasActive(agent) === true) return true
-    return ctx.get('subagents')?.hasPendingContinuations(agent) ?? false
-  }
-
-  /** Whether this exact lifecycle is quiescent with no competing prompt or background work. */
+  /** Whether this exact lifecycle is quiescent with no competing prompt. */
   function readyToDrive(state: DriverState): boolean {
     return ctx.fiber.state === FiberState.ACTIVE
       && !state.stopping
       && ctx.agents.get(state.agent.id) === state.agent
       && state.agent.status === 'idle'
       && !state.competingQueued
-      && !hasOutstandingBackgroundWork(state.agent)
   }
+
   /** Recheck every condition that an awaited checkpoint may have changed. */
   function readyAfterCheckpoint(state: DriverState): boolean {
     return readyToDrive(state) && !state.needsCheckpoint
@@ -252,32 +243,13 @@ export function apply(ctx: Context): void {
   // One composite effect keeps the step fence installed until this
   // plugin's own scheduling tasks settle.
   ctx.effect(function* () {
-    ctx.inject(['jobs'], (jobsCtx) => {
-      jobsCtx.jobs.onJobsChanged((owner) => {
-        if (owner === undefined) return
-        const state = states.get(owner)
-        if (state === undefined || ctx.agents.get(owner.id) !== owner) return
-        requestDrive(state)
-      })
-    })
-
-    function requestForParent(this: object): void {
-      const parent = carrierKeyOf(this) as Agent | undefined
-      if (parent === undefined || ctx.agents.get(parent.id) !== parent) return
-      const state = states.get(parent)
-      if (state !== undefined) requestDrive(state)
-    }
-    ctx.on('subagent/start', requestForParent)
-    ctx.on('subagent/end', requestForParent)
-
     ctx.on('agent/error', ({ agent }) => {
       const state = stateFor(agent)
       disarm(state)
     })
 
-    ctx.on('agent/created', ({ agent }) => { stateFor(agent) })
     ctx.on('agent/disposed', ({ agent }) => { states.delete(agent) })
-    ctx.on('agent/session-start', ({ agent }) => {
+    ctx.on('agent/created', ({ agent }) => {
       const state = stateFor(agent)
       state.attempt = undefined
       state.competingQueued = false
@@ -372,7 +344,7 @@ export function apply(ctx: Context): void {
     /** Fail closed unless the queued prompt still owns the exact live revision. */
     function validReservation(
       state: DriverState,
-      content: ContentBlock[],
+      content: readonly ContentBlock[],
       source: GoalMessageSource,
     ): boolean {
       const attempt = state.attempt
@@ -382,7 +354,6 @@ export function apply(ctx: Context): void {
       && !attempt.stale && sameQueued(content, source, attempt)
       && goal !== undefined && goal.id === source.goalId && goal.revision === source.revision
       && goal.phase === 'active' && goal.activation === 'armed'
-      && !hasOutstandingBackgroundWork(state.agent)
       && source.round === goal.roundsStarted + 1
     }
 

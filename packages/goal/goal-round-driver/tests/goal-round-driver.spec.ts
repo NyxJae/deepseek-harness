@@ -8,9 +8,16 @@ import GoalService, { GoalId } from '@deepseek-ai/dsh-goal'
 import type { GoalView } from '@deepseek-ai/dsh-goal'
 import { createUserMessage, LlmAdapter, LlmError  } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
+import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type { UserMessage } from '@deepseek-ai/dsh-session'
 import * as goalSession from '../src/index.ts'
+
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    'test': { kind: 'test' } & ContextFormed
+  }
+}
 
 type ScriptEntry = StreamChunk[] | Error | 'hang' | ((options: GenerateOptions) => StreamChunk[])
 
@@ -77,14 +84,6 @@ interface Harness {
   readonly agent: Agent
   readonly driver: Awaited<ReturnType<Context['plugin']>>
 }
-interface BackgroundHarness {
-  jobs?: {
-    hasActive(owner: Agent): boolean
-    onJobsChanged(listener: (owner?: Agent) => void): () => void
-  }
-  subagents?: { hasPendingContinuations(owner: Agent): boolean }
-}
-
 
 const contexts: Context[] = []
 
@@ -93,13 +92,11 @@ afterEach(async () => {
 })
 
 /** Mount a real loop with only its model scripted. */
-async function harness(script: ScriptEntry[], background?: BackgroundHarness): Promise<Harness> {
+async function harness(script: ScriptEntry[]): Promise<Harness> {
   const ctx = new Context()
   contexts.push(ctx)
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(GoalService)
-  if (background?.jobs !== undefined) ctx.provide('jobs', background.jobs as never)
-  if (background?.subagents !== undefined) ctx.provide('subagents', background.subagents as never)
   const driver = await ctx.plugin(goalSession)
   await ctx.plugin(AgentLoop, { agents: [] })
   const adapter = new ScriptedAdapter(script)
@@ -219,52 +216,6 @@ describe('same-session goal driving', () => {
     expect(requestText(test.adapter.requests[1]!)).toContain('Round: 2/2')
     expect(test.agent.session.snapshotEvents().flatMap(event =>
       event.type === 'request/header' ? [event.data.reason] : [])).toEqual(['initial', 'series'])
-  })
-  it('waits for an exact owner Job and wakes when it settles', async () => {
-    const state: { owner?: Agent; active: boolean } = { active: true }
-    let changed: ((agent?: Agent) => void) | undefined
-    const test = await harness([textResponse('after job')], {
-      jobs: {
-        hasActive: candidate => state.active && candidate === state.owner,
-        onJobsChanged: (listener) => { changed = listener; return () => {} },
-      },
-      subagents: { hasPendingContinuations: () => false },
-    })
-    state.owner = test.agent
-    test.ctx.goals.create(test.agent, { objective: 'wait for background work', maxGoalRounds: 1 })
-    await Promise.resolve()
-    expect(test.adapter.requests).toHaveLength(0)
-    state.active = false
-    changed?.(test.agent)
-    await waitForGoal(test.ctx, test.agent, goal => goal?.phase === 'blocked')
-    expect(test.adapter.requests).toHaveLength(1)
-  })
-
-  it('wakes when Jobs mounts after the goal driver', async () => {
-    const ctx = new Context()
-    contexts.push(ctx)
-    await mountAgentLoopTestDependencies(ctx)
-    await ctx.plugin(GoalService)
-    await ctx.plugin(goalSession)
-    await ctx.plugin(AgentLoop, { agents: [] })
-    const adapter = new ScriptedAdapter([textResponse('after late job')])
-    ctx.llm.registerAdapter(['mock'], adapter)
-    const state: { owner?: Agent; active: boolean } = { active: true }
-    let changed: ((agent?: Agent) => void) | undefined
-    ctx.provide('jobs', {
-      hasActive: (candidate: Agent) => state.active && candidate === state.owner,
-      onJobsChanged: (listener: (agent?: Agent) => void) => { changed = listener; return () => {} },
-    } as never)
-    await Promise.resolve()
-    const agent = await ctx.agentLoop.create(SessionId('goal-session-late-jobs'), { provider: 'mock', model: 'mock' })
-    state.owner = agent
-    ctx.goals.create(agent, { objective: 'wait for late jobs', maxGoalRounds: 1 })
-    await Promise.resolve()
-    expect(adapter.requests).toHaveLength(0)
-    state.active = false
-    changed?.(agent)
-    await waitForGoal(ctx, agent, goal => goal?.phase === 'blocked')
-    expect(adapter.requests).toHaveLength(1)
   })
 
   it('never adopts activation from an already-live driver and waits for explicit resume', async () => {
@@ -537,7 +488,7 @@ describe('same-session goal driving', () => {
     const test = await harness([textResponse('side contexts'), textResponse('revised goal')])
     const claimedContext = createUserMessage({
       content: [{ type: 'text', text: 'claimed context to restore' }],
-      source: { kind: 'plugin', plugin: 'test' },
+      source: { kind: 'test' },
     })
     const roundZeroContext = createUserMessage({
       content: [{ type: 'text', text: 'obsolete goal context' }],
@@ -545,11 +496,11 @@ describe('same-session goal driving', () => {
     })
     const queuedStepContext = createUserMessage({
       content: [{ type: 'text', text: 'context already queued for the next step' }],
-      source: { kind: 'plugin', plugin: 'test' },
+      source: { kind: 'test' },
     })
     const queuedTurnContext = createUserMessage({
       content: [{ type: 'text', text: 'context already queued for the next turn' }],
-      source: { kind: 'plugin', plugin: 'test' },
+      source: { kind: 'test' },
     })
     let staged = false
     const stopInserted = onInboxMessage(test.ctx, test.agent, (message) => {
@@ -993,7 +944,7 @@ describe('same-session goal driving', () => {
   it('resets process-local scheduling state at a session-start edge', async () => {
     const test = await harness([textResponse('after explicit resume')])
     const created = test.ctx.goals.create(test.agent, { objective: 'restart safely', maxGoalRounds: 1 })
-    agentEvents(test.ctx, test.agent).emit('agent/session-start', { source: 'resume' })
+    await agentEvents(test.ctx, test.agent).serial('agent/created', { source: 'resume' })
     await Promise.resolve()
 
     expect(test.ctx.goals.get(test.agent)).toMatchObject({ activation: 'disarmed', roundsStarted: 0 })
