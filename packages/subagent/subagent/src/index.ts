@@ -286,6 +286,15 @@ export class SubagentRuntime extends TypertRemoteService {
   }
 
   /**
+   * Whether this exact Agent owns a live direct continuable child.
+   * @param parent - Agent whose direct child ownership is checked.
+   * @returns whether a live direct continuable child is owned by the supplied Agent.
+   */
+  hasPendingContinuations(parent: Agent): boolean {
+    return this.continuations?.hasPendingContinuations(parent) ?? false
+  }
+
+  /**
    * Deliver one host-protocol message to a direct continuable child.
    * Symbol-keyed so host adapters can preserve their own source descriptors without
    * widening the public Service Definition or impersonating an Agent sender.

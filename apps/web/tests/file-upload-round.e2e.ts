@@ -28,6 +28,7 @@ const TRAJECTORY_STATUS_EXPECTED = fileURLToPath(new URL('../../../snapshots/web
 const OVERRIDE = fileURLToPath(new URL('../../../snapshots/web/file-upload-round/replay.override.json', import.meta.url))
 const DRAFT_EXPECTED = fileURLToPath(new URL('./expected/file-upload-round/draft.expected.md', import.meta.url))
 const HISTORY_EXPECTED = fileURLToPath(new URL('./expected/file-upload-round/history.expected.md', import.meta.url))
+const IMAGE_PREVIEW_EXPECTED = fileURLToPath(new URL('./expected/file-upload-round/image-preview.expected.md', import.meta.url))
 const IMAGE_FIXTURE = fileURLToPath(new URL('../../../snapshots/session/read-image/workspace/red.png', import.meta.url))
 const MODE = webSnapshotMode()
 
@@ -159,6 +160,14 @@ describe('web e2e: generic file upload through the real assembly', () => {
       const dialog = page.getByRole('dialog', { name: 'Original image preview', exact: true })
       await dialog.waitFor()
       expect(await dialog.getByRole('img', { name: imageName }).getAttribute('src')).toBe(chatImageUrl)
+      await dialog.getByRole('button', { name: 'Zoom in on original image', exact: true }).click()
+      await dialog.getByText('125%', { exact: true }).waitFor()
+      if (tab === 'Preview') {
+        const imagePreview = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
+        await compareOrRefreshGolden(IMAGE_PREVIEW_EXPECTED, imagePreview, MODE)
+      }
+      await dialog.getByRole('button', { name: 'Reset original image zoom', exact: true }).click()
+      await dialog.getByText('100%', { exact: true }).waitFor()
       await page.keyboard.press('Escape')
       await dialog.waitFor({ state: 'hidden' })
       expect(await opener.evaluate(element => element === document.activeElement)).toBe(true)

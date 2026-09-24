@@ -300,18 +300,55 @@ describe('SettingsPanel close paths', () => {
     await vi.waitFor(() => { expect(document.activeElement).toBe(trigger) })
   })
 
-  it('closes via document-level Escape, restores trigger focus, and unhooks the listener', async () => {
+  it('closes via window-level Escape, restores trigger focus, and unhooks the listener', async () => {
     mount()
     const trigger = openPanel()
-    fireEvent.keyDown(document, { key: 'Escape' })
+    fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.queryByRole('dialog')).toBeNull()
     await vi.waitFor(() => { expect(document.activeElement).toBe(trigger) })
-    // Ignored while closed (listener removed with the panel) and non-Escape
-    // keys are ignored while open.
-    fireEvent.keyDown(document, { key: 'Escape' })
+    fireEvent.keyDown(window, { key: 'Escape' })
     openPanel()
-    fireEvent.keyDown(document, { key: 'Enter' })
+    fireEvent.keyDown(window, { key: 'Enter' })
     expect(screen.getByRole('dialog')).toBeTruthy()
+  })
+
+  it('keeps a nested overlay open when it consumes Escape', () => {
+    mount()
+    openPanel()
+    const nestedOverlay = (event: KeyboardEvent) => { event.preventDefault() }
+    document.addEventListener('keydown', nestedOverlay, { once: true })
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    screen.getByRole('button', { name: 'Close' }).dispatchEvent(escape)
+    expect(escape.defaultPrevented).toBe(true)
+    expect(screen.getByRole('dialog')).toBeTruthy()
+  })
+
+  it('wraps Tab and Shift+Tab at the dialog edges', () => {
+    mount()
+    openPanel()
+    const dialog = screen.getByRole('dialog')
+    const buttons = dialog.querySelectorAll<HTMLButtonElement>('button:not([disabled])')
+    const first = buttons.item(0)
+    const last = buttons.item(buttons.length - 1)
+    const middle = buttons.item(1)
+    if (first === null || last === null || middle === null) throw new Error('Settings dialog controls were not rendered')
+
+    first.focus()
+    const reverse = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true })
+    first.dispatchEvent(reverse)
+    expect(reverse.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(last)
+
+    last.focus()
+    const forward = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    last.dispatchEvent(forward)
+    expect(forward.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(first)
+
+    middle.focus()
+    const inside = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    middle.dispatchEvent(inside)
+    expect(inside.defaultPrevented).toBe(false)
   })
 
   it('lands focus on the close button when the dialog opens', () => {

@@ -1,0 +1,3 @@
+- navigation "Session hierarchy": Forked session clipped before its suffix (1)
+- button "More actions"
+- button "Open right sidebar"

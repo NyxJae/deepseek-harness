@@ -423,3 +423,14 @@
   opacity: 0.4;
   cursor: default;
 }
+
+@media (max-width: 640px) {
+  .cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cardHead {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+}

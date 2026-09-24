@@ -1,7 +1,7 @@
 /**
  * Normal column geometry: the right column shrinks, then loses its track,
- * before the center drops below its minimum. The sidebar never concedes here;
- * AppFrame supplies its effective preference after responsive collapse.
+ * before the center drops below its minimum. AppFrame supplies the sidebar
+ * grid-track width separately from a fixed overlay's expanded width.
  */
 
 /** Resolved widths for one frame. */
@@ -15,12 +15,16 @@ export const SIDEBAR_MIN = 264
 export const SIDEBAR_MAX = 420
 /** Sidebar width before any user drag. */
 export const SIDEBAR_DEFAULT = 280
-/** Closed-sidebar rail: a 24px icon column between 16px horizontal paddings. */
+/** Desktop collapsed-sidebar rail: a 24px icon column between 16px paddings. */
 export const SIDEBAR_COLLAPSED = 56
-/** Viewport width below which the sidebar auto-collapses to the rail (deepsuite
- * LG breakpoint); a manual toggle below it re-expands over the squeezed center
- * (stores.ts narrowExpanded). */
+/** Viewport width below which AppFrame stops reserving a sidebar grid track. */
 export const SIDEBAR_AUTO_COLLAPSE = 1024
+/** Grid-track policy used when the sidebar width is zero. */
+export interface ColumnOptions {
+  /** Keep the desktop rail or use a zero-width overlay/titlebar track. */
+  sidebarTrack?: 'rail' | 'none'
+}
+
 /** Right column drag clamp floor. */
 export const RIGHTBAR_MIN = 300
 /** Maximum normal right panel width as a fraction of the frame. */
@@ -42,15 +46,16 @@ export function clampWidth(px: number, min: number, max: number): number {
 /**
  * Solve the three column widths for one viewport frame.
  * @param viewport - available frame width in px.
- * @param sidebar - sidebar width preference in px (0 = closed).
+ * @param sidebar - sidebar grid-track width in px (0 uses the closed-track policy).
  * @param rightbar - requested right panel width in px (0 = no track).
- * @param collapsedWidth - track width of the closed sidebar; the default keeps
- *   the icon rail, 0 hides the column entirely (macOS desktop).
+ * @param options - zero-width sidebar policy; the default keeps the desktop rail.
  * @returns actual widths after shrinking or removing the right track; only
  *   without that track may the center fall below its minimum, down to zero.
  */
-export function computeColumns(viewport: number, sidebar: number, rightbar: number, collapsedWidth = SIDEBAR_COLLAPSED): Columns {
-  const s = sidebar === 0 ? collapsedWidth : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
+export function computeColumns(viewport: number, sidebar: number, rightbar: number, options: ColumnOptions = {}): Columns {
+  const s = sidebar === 0
+    ? options.sidebarTrack === 'none' ? 0 : SIDEBAR_COLLAPSED
+    : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
   const available = viewport - s - CENTER_MIN
   const r = rightbar === 0 || available < RIGHTBAR_MIN
     ? 0

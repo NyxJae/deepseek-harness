@@ -1,0 +1,15 @@
+- button "Collapse sidebar"
+- button "Collapse sidebar"
+- button "New session": New Session
+- navigation "Global panels":
+  - button "Plugins"
+- text: Workspaces
+- button "Search sessions"
+- textbox "Search session names"
+- button "View options"
+- button "Add workspace"
+- tree "Sessions":
+  - treeitem "{{workspace}}" [expanded]
+  - treeitem "New Session" [selected]
+  - treeitem "Forked session clipped before its suffix (1) {{age}}"
+- button "Settings"

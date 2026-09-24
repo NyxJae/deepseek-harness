@@ -113,10 +113,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** Sidebar owner share: live column state from the frame's concession solve. */
 export interface SidebarOwnerProps {
-  /** True when the sidebar is closed (the column renders the compact control rail). */
+  /** True when the sidebar is closed. */
   collapsed: boolean
-  /** Rendered column width in px (SIDEBAR_COLLAPSED when collapsed). */
+  /** Expanded width in px; a mobile overlay uses it independently of the grid. */
   width: number
+  /** True when the sidebar is a fixed overlay outside the column grid. */
+  mobile?: boolean
 }
 
 /** Right column owner share: resolved normal geometry and opening eligibility. */

@@ -80,6 +80,14 @@
   padding-inline-start: max(0px, calc(var(--dsh-frame-leading-clearance, 0px) - 20px));
 }
 
+/* The corner stays in the row while title and utility controls scroll together. */
+.titleScroller {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+}
+
 .titleCluster {
   display: flex;
   flex: 1;
@@ -542,4 +550,26 @@ button.crumb:hover {
 .root[data-phase='settling'] .composerSeat,
 .embeddedBody[data-content-phase='settling'] .composerSeat {
   visibility: hidden;
+}
+
+@media (max-width: 600px) {
+  .titleScroller {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .titleScroller::-webkit-scrollbar {
+    display: none;
+  }
+
+  .titleCluster {
+    flex: none;
+    min-width: max-content;
+  }
+
+  .crumbs {
+    flex: none;
+    max-width: none;
+    overflow: visible;
+  }
 }

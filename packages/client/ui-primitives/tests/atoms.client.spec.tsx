@@ -120,10 +120,22 @@ describe('Menu', () => {
       <Menu open anchor={<span>trigger</span>} items={items} onSelect={onSelect} onClose={onClose} />)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Beta' }))
     expect(onSelect).not.toHaveBeenCalled()
-    fireEvent.keyDown(document, { key: 'Escape' })
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    document.dispatchEvent(escape)
+    expect(escape.defaultPrevented).toBe(true)
     expect(onClose).toHaveBeenCalledTimes(1)
     fireEvent.pointerDown(document.body)
     expect(onClose).toHaveBeenCalledTimes(2)
+  })
+
+  it('leaves an Escape consumed by a nested overlay', () => {
+    const onClose = vi.fn()
+    render(
+      <Menu open anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    escape.preventDefault()
+    document.dispatchEvent(escape)
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   it('inside pointerdown does not close', () => {

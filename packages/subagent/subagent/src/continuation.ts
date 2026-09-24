@@ -95,6 +95,15 @@ export class SubagentContinuationManager {
   }
 
   /**
+   * Whether this exact parent has a live direct continuable child.
+   * @param parent - Agent whose direct child ownership is checked.
+   * @returns whether a live direct continuable child is owned by the supplied Agent.
+   */
+  hasPendingContinuations(parent: Agent): boolean {
+    return this.activations.hasPending(parent)
+  }
+
+  /**
    * Start one continuable background child and resolve at initial inbox acceptance.
    * Every earlier failure disposes any created handle and rolls back Activation
    * and parent ownership without returning either id.

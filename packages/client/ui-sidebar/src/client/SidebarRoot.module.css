@@ -1,10 +1,7 @@
-/* Sidebar column (figma 133:7629): vertical stack, padding 12/6, sidebar
-   fill + 1px right border painted by the layout column. Collapse is a
-   slide + crossfade, not a morph: the content holds its frozen expanded
-   layout (inline width set by the component) and fades in place (.fading)
-   while the sliding column (AppFrame grid tracks) clips it; the rail layout
-   (.collapsed) only applies after the fade settles, so nothing reflows
-   mid-slide. */
+/* Sidebar column (figma 133:7629): vertical stack, padding 12/6, sidebar fill,
+   and a desktop border owned by the layout column. The fixed mobile drawer
+   paints its own edge. Collapse is a slide + crossfade; the frozen expanded
+   layout fades while the desktop grid track clips it. */
 
 .root {
   --dsh-sidebar-inline-padding: 12px;
@@ -586,4 +583,65 @@
     transition: none;
     animation: none;
   }
+}
+
+.mobileTrigger {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top));
+  left: max(8px, env(safe-area-inset-left));
+  z-index: 31;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  box-sizing: border-box;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: var(--dsw-specific-sidebar-fill);
+  box-shadow: var(--dsw-shadow-lv2);
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.mobileTrigger:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.mobileBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: var(--dsw-alias-bg-mask-1);
+  cursor: default;
+}
+
+.mobileRoot {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 31;
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+  padding-top: max(6px, env(safe-area-inset-top));
+  padding-bottom: max(6px, env(safe-area-inset-bottom));
+  box-shadow: var(--dsw-shadow-lv3);
+  overflow: hidden;
+}
+
+:global([data-platform='darwin']) .mobileRoot {
+  background: var(--dsw-specific-sidebar-fill);
+}
+
+.mobileClosed {
+  width: 0 !important;
+  visibility: hidden;
+  pointer-events: none;
+  box-shadow: none;
 }

@@ -36,7 +36,7 @@ type AttentionSnapshot = Parameters<Parameters<SidebarRootComponentProps['useSes
 const noAttention: AttentionSnapshot = new Map()
 const useSessionStatus: SidebarRootComponentProps['useSessionStatus'] = selector => selector(noAttention)
 
-function mountShell({ collapsed = false, width = 300 }: { collapsed?: boolean; width?: number } = {}) {
+function mountShell({ collapsed = false, width = 300, mobile = false }: { collapsed?: boolean; width?: number; mobile?: boolean } = {}) {
   const startSession = vi.fn()
   const toggleSidebar = vi.fn()
   let regionOwner: SidebarSectionOwnerProps | undefined
@@ -44,10 +44,10 @@ function mountShell({ collapsed = false, width = 300 }: { collapsed?: boolean; w
   let footerActionOwner: SidebarFooterActionOwnerProps | undefined
   const brandMark = <span data-testid="custom-brand-mark">M</span>
   const brandName = <span data-testid="custom-brand-name">Custom Brand</span>
-  let current = { collapsed, width }
+  let current = { collapsed, width, mobile }
   const root = () => (
     <SidebarRoot
-      collapsed={current.collapsed} width={current.width}
+      collapsed={current.collapsed} width={current.width} mobile={current.mobile}
       useSessions={neverHook} useSessionStatus={useSessionStatus} useSessionRetainInfo={neverHook}
       usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector([])}
       useResource={useResource} useWorkspaces={neverHook}
@@ -96,16 +96,55 @@ function mountShell({ collapsed = false, width = 300 }: { collapsed?: boolean; w
 }
 
 describe('SidebarRoot shell', () => {
-  it('routes New Session (capsule + wordmark) and the column toggle', () => {
+  it('routes the brand to collapse and keeps New Session on its own control', () => {
     const b = mountShell()
     expect(screen.getByTestId('custom-brand-mark')).toBeTruthy()
     expect(screen.getByTestId('custom-brand-name')).toBeTruthy()
-    // Expanded, both the wordmark and the capsule start a session.
-    const starters = screen.getAllByRole('button', { name: 'New session' })
-    expect(starters).toHaveLength(2)
-    for (const button of starters) fireEvent.click(button)
-    expect(b.startSession).toHaveBeenCalledTimes(2)
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    const collapseButtons = screen.getAllByRole('button', { name: 'Collapse sidebar' })
+    const brand = collapseButtons.find(button => button.hasAttribute('data-sidebar-brand-collapse'))
+    const toggle = collapseButtons.find(button => !button.hasAttribute('data-sidebar-brand-collapse'))
+    if (brand === undefined || toggle === undefined) throw new Error('sidebar collapse controls were not rendered')
+    fireEvent.click(brand)
+    expect(b.toggleSidebar).toHaveBeenCalledOnce()
+    expect(b.startSession).not.toHaveBeenCalled()
+    fireEvent.click(toggle)
+    fireEvent.click(screen.getByRole('button', { name: 'New session' }))
+    expect(b.toggleSidebar).toHaveBeenCalledTimes(2)
+    expect(b.startSession).toHaveBeenCalledOnce()
+  })
+
+  it('opens the mobile drawer and restores focus after backdrop close', () => {
+    const b = mountShell({ collapsed: true, width: 0, mobile: true })
+    const trigger = screen.getByRole('button', { name: 'Open sidebar' })
+    trigger.focus()
+    fireEvent.click(trigger)
+    expect(b.toggleSidebar).toHaveBeenCalledOnce()
+
+    b.rerender({ collapsed: false, width: 300 })
+    const brand = document.querySelector('[data-sidebar-brand-collapse]')
+    if (brand === null) throw new Error('mobile drawer brand was not rendered')
+    expect(document.activeElement).toBe(brand)
+    expect(document.querySelector('[data-sidebar-mobile-root]')).not.toBeNull()
+
+    const backdrop = document.querySelector<HTMLButtonElement>('[data-sidebar-mobile-backdrop]')
+    if (backdrop === null) throw new Error('mobile drawer backdrop was not rendered')
+    fireEvent.click(backdrop)
+    expect(b.toggleSidebar).toHaveBeenCalledTimes(2)
+    b.rerender({ collapsed: true, width: 0 })
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open sidebar' }))
+    expect(document.querySelector('[data-sidebar-mobile-root]')).toBeNull()
+  })
+
+  it('closes the mobile drawer on Escape unless another control consumed it', () => {
+    const b = mountShell({ mobile: true })
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    document.dispatchEvent(escape)
+    expect(escape.defaultPrevented).toBe(true)
+    expect(b.toggleSidebar).toHaveBeenCalledOnce()
+
+    const consumed = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    consumed.preventDefault()
+    document.dispatchEvent(consumed)
     expect(b.toggleSidebar).toHaveBeenCalledOnce()
   })
 
@@ -260,7 +299,10 @@ describe('Windows caption tooltips', () => {
       vi.useFakeTimers()
       document.documentElement.setAttribute('data-windows-titlebar', '')
       mountShell({ collapsed, width: collapsed ? 0 : 300 })
-      hover(screen.getByRole('button', { name: collapsed ? 'Open sidebar' : 'Collapse sidebar' }))
+      const toggle = screen.getAllByRole('button', { name: collapsed ? 'Open sidebar' : 'Collapse sidebar' })
+        .find(button => !button.hasAttribute('data-sidebar-brand-collapse'))
+      if (toggle === undefined) throw new Error('sidebar toggle was not rendered')
+      hover(toggle)
       expect(screen.getByRole('tooltip').getAttribute('data-side')).toBe('bottom')
     },
   )

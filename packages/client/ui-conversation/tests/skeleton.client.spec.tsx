@@ -520,6 +520,18 @@ describe('ConversationRoot resident composer', () => {
     expect(b.slotCalls).toContain('conversation.session.header.corner')
   })
 
+  it('keeps the header corner outside the horizontally scrolling title row', () => {
+    const b = mount(sessionSnapshotOf())
+    const row = b.view.container.querySelector('[data-conversation-header-row]')
+    const scroller = b.view.container.querySelector('[data-conversation-header-scroller]')
+    const corner = b.view.container.querySelector('[data-conversation-header-corner]')
+
+    expect(row).not.toBeNull()
+    expect(scroller?.parentElement).toBe(row)
+    expect(corner?.parentElement).toBe(row)
+    expect(scroller?.contains(corner)).toBe(false)
+  })
+
   it('sticky composer seat wraps the whole overlay chain, not only the fallback stack', () => {
     const b = mount(sessionSnapshotOf(), undefined, undefined, { overlayTakeover: true })
     const seat = b.view.container.querySelector('[data-composer-seat]')

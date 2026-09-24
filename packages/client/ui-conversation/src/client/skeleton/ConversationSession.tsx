@@ -53,7 +53,7 @@ function equalBreadcrumbs(left: readonly Breadcrumb[], right: readonly Breadcrum
 /**
  * Renders Session header chrome above the resident conversation scrollport.
  * @param props - Strict Session store, view ledger, navigation, render, and locale shares.
- * @returns Session navigation controls, with title and tabs after conversation starts.
+ * @returns the title scroller, fixed corner controls, and available view tabs.
  */
 export function ConversationSessionHeader({
   sessionId, hideChrome, useSessions, useConversationViews, useStore,
@@ -66,73 +66,75 @@ export function ConversationSessionHeader({
   const showTabs = !hideChrome && tabs.length > 1
   return (
     <>
-      <div className={css.titleRow}>
-        {!hideChrome && (
-          <>
-            <div className={css.titleCluster}>
-              <nav className={css.crumbs} aria-label={t('session.hierarchy')}>
-                {ancestry.map((summary, index) => {
-                  const last = index === ancestry.length - 1
-                  // The current crumb has no navigation, so it is plain text
-                  // rather than a disabled button: on darwin desktop a button
-                  // would subtract itself from the window drag band (ui-web
-                  // base.css) and leave the title inert for dragging too.
-                  const title = last
-                    ? (
-                      <span className={clsx(css.crumb, summary.subagent && css.crumbSubagent, css.crumbCurrent)}>
-                        {summary.displayTitle}
+      <div className={css.titleRow} data-conversation-header-row="">
+        <div className={css.titleScroller} data-conversation-header-scroller="">
+          {!hideChrome && (
+            <>
+              <div className={css.titleCluster}>
+                <nav className={css.crumbs} aria-label={t('session.hierarchy')}>
+                  {ancestry.map((summary, index) => {
+                    const last = index === ancestry.length - 1
+                    // The current crumb has no navigation, so it is plain text
+                    // rather than a disabled button: on darwin desktop a button
+                    // would subtract itself from the window drag band (ui-web
+                    // base.css) and leave the title inert for dragging too.
+                    const title = last
+                      ? (
+                        <span className={clsx(css.crumb, summary.subagent && css.crumbSubagent, css.crumbCurrent)}>
+                          {summary.displayTitle}
+                        </span>
+                      )
+                      : (
+                        <button
+                          type="button"
+                          className={clsx(css.crumb, summary.subagent && css.crumbSubagent)}
+                          onClick={() => { open(summary.id) }}
+                        >
+                          {summary.displayTitle}
+                        </button>
+                      )
+                    const lineage = last || summary.subagent
+                    const lineageOwner = {
+                      lineageSessionId: summary.id,
+                      displayTitle: summary.displayTitle,
+                      ...last ? {} : { openTitle: () => { open(summary.id) } },
+                    }
+                    return (
+                      <span key={summary.id} className={css.crumbSeg}>
+                        {index > 0 && <span className={css.crumbSep}>/</span>}
+                        {lineage
+                          ? summary.subagent
+                            ? renderSlot(
+                              'conversation.session.header.lineage',
+                              lineageOwner,
+                              { fallback: title },
+                            )
+                            : (
+                              <>
+                                {title}
+                                {renderSlot(
+                                  'conversation.session.header.lineage',
+                                  lineageOwner,
+                                  { fallback: null },
+                                )}
+                              </>
+                            )
+                          : title}
                       </span>
                     )
-                    : (
-                      <button
-                        type="button"
-                        className={clsx(css.crumb, summary.subagent && css.crumbSubagent)}
-                        onClick={() => { open(summary.id) }}
-                      >
-                        {summary.displayTitle}
-                      </button>
-                    )
-                  const lineage = last || summary.subagent
-                  const lineageOwner = {
-                    lineageSessionId: summary.id,
-                    displayTitle: summary.displayTitle,
-                    ...last ? {} : { openTitle: () => { open(summary.id) } },
-                  }
-                  return (
-                    <span key={summary.id} className={css.crumbSeg}>
-                      {index > 0 && <span className={css.crumbSep}>/</span>}
-                      {lineage
-                        ? summary.subagent
-                          ? renderSlot(
-                            'conversation.session.header.lineage',
-                            lineageOwner,
-                            { fallback: title },
-                          )
-                          : (
-                            <>
-                              {title}
-                              {renderSlot(
-                                'conversation.session.header.lineage',
-                                lineageOwner,
-                                { fallback: null },
-                              )}
-                            </>
-                          )
-                        : title}
-                    </span>
-                  )
-                })}
-                {ancestry.length === 0 && <span className={css.crumbCurrent}>{sessionId}</span>}
-              </nav>
-              <div className={css.headerActions}>
-                {renderSlot('conversation.session.header.actions', {})}
+                  })}
+                  {ancestry.length === 0 && <span className={css.crumbCurrent}>{sessionId}</span>}
+                </nav>
+                <div className={css.headerActions}>
+                  {renderSlot('conversation.session.header.actions', {})}
+                </div>
               </div>
-            </div>
-            <div className={css.headerUtilities}>
-              {renderSlot('conversation.session.header.utilities', {})}
-            </div>
-          </>
-        )}
+              <div className={css.headerUtilities}>
+                {renderSlot('conversation.session.header.utilities', {})}
+              </div>
+            </>
+          )}
+        </div>
         <div className={css.headerCorner} data-conversation-header-corner="">
           {renderSlot('conversation.session.header.corner', {})}
         </div>

@@ -108,7 +108,8 @@ const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
  * list instead — and Escape or Shift+Tab close it and return focus to the
  * anchor's first button, and selecting a row does the same — the rows unmount
  * with the list. Only a keyboard on the trigger or inside the list is
- * intercepted; Tab presses elsewhere on the page stay the browser's.
+ * Tab elsewhere retains browser traversal. Escape closes the menu unless a
+ * nested control consumed it; a closing menu marks Escape handled for dialogs.
  * @param props.autoFocus - focus the first item on open; the arrow keys walk the list either way.
  * @param props.open - whether the list is showing (owner-controlled).
  * @param props.anchor - the trigger element (rendered in place).
@@ -315,12 +316,14 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       onClose()
     }
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return
       // Where the keyboard is, computed once: the menu owns it when it holds a
       // row or sits on its anchor region.
       const focused = document.activeElement
       const insideList = listRef.current?.contains(focused) === true
       const anchored = rootRef.current?.contains(focused) === true || insideList
       if (e.key === 'Escape') {
+        e.preventDefault()
         // Closing hands the keyboard back when the menu had it — and, as this
         // primitive always did for autoFocus menus, when it held the keyboard
         // and lost it again (a row that unmounted under it).

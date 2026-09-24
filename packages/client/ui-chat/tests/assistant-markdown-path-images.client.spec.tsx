@@ -44,6 +44,7 @@ describe('localPathMediaUrl', () => {
     expect(localPathMediaUrl(BASE, '//cdn.example.com/x.png')).toBeUndefined()
     expect(localPathMediaUrl(BASE, 'relative.png')).toBeUndefined()
     expect(new URL(localPathMediaUrl(BASE, 'C:\\tmp\\x.png')!).searchParams.get('path')).toBe('C:\\tmp\\x.png')
+    expect(new URL(localPathMediaUrl(BASE, 'C:/tmp/x.png')!).searchParams.get('path')).toBe('C:/tmp/x.png')
   })
 
   it('encodes the full path including spaces', () => {
@@ -68,6 +69,23 @@ describe('AssistantMarkdown local-path images', () => {
     const url = new URL(image?.getAttribute('src') ?? '')
     expect(url.pathname).toBe('/api/file')
     expect(url.searchParams.get('path')).toBe('/tmp/graph.png')
+  })
+
+  it('renders a forward-slash Windows path through the same-origin file API', () => {
+    const { container } = render(
+      <AssistantMarkdown useDisclosure={useDisclosure}
+        usePresentation={useDetailedPresentation}
+        blocks={[textBlock('See ![diagram](C:/work/graph.png).')]}
+        streaming={false}
+        renderMessageImages={renderMessageImages}
+        t={t}
+      />,
+    )
+    const image = container.querySelector('img')
+    expect(image?.getAttribute('alt')).toBe('diagram')
+    const url = new URL(image?.getAttribute('src') ?? '')
+    expect(url.pathname).toBe('/api/file')
+    expect(url.searchParams.get('path')).toBe('C:/work/graph.png')
   })
 
   it('keeps non-absolute destinations inert', () => {

@@ -27,6 +27,17 @@ const RECOVERY_CONFIRMATION_MS = 2_000
 /** Minimum visible time for the connecting pill; shorter attempts read as flicker. */
 const CONNECTING_MIN_VISIBLE_MS = 800
 
+const DIALOG_FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'area[href]',
+  'button:not(:disabled)',
+  'input:not(:disabled):not([type="hidden"])',
+  'select:not(:disabled)',
+  'textarea:not(:disabled)',
+  '[tabindex]:not([tabindex="-1"])',
+  '[contenteditable="true"]',
+].join(',')
+
 /** Nav glyph by section id; unknown ids fall back to the settings gear. */
 function navIcon(id: string) {
   if (id === 'account') return <IconUserOutlineMedium className={css.navIcon} size={16} />
@@ -46,32 +57,56 @@ type PanelProps = {
 }
 
 /**
- * The modal layer: full-viewport mask + centered panel. Close paths: the
- * header button, a mask click, and document-level Escape (mounted only while
- * open, so the listener lifetime is the panel's).
+ * The modal layer: full-viewport mask + centered panel. Header and mask close
+ * it directly; unconsumed Escape closes it, and Tab stays inside while open.
  */
 function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelProps) {
   // Entries can unmount underneath the requested id, so the render-time
   // projection falls back to the first row when the id is gone.
   const active = rows.find(r => r.id === activeId)?.id ?? rows[0]?.id
   const titleId = useId()
+  const panelRef = useRef<HTMLDivElement | null>(null)
+  const closeButton = useRef<HTMLButtonElement | null>(null)
 
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+        return
+      }
+      if (event.key !== 'Tab') return
+      const panel = panelRef.current
+      if (panel === null) return
+      const focusable = Array.from(panel.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR))
+        .filter((element) => {
+          if (element.tabIndex < 0 || element.closest('[hidden], [inert], [aria-hidden="true"]') !== null) return false
+          const style = window.getComputedStyle(element)
+          return style.display !== 'none' && style.visibility !== 'hidden'
+        })
+      const first = focusable[0]
+      const last = focusable.at(-1)
+      if (first === undefined || last === undefined) return
+      const active = document.activeElement
+      const outside = !panel.contains(active)
+      if (event.shiftKey ? active === first || outside : active === last || outside) {
+        event.preventDefault()
+        const target = event.shiftKey ? last : first
+        target.focus()
+      }
     }
-    document.addEventListener('keydown', onKeyDown)
-    return () => { document.removeEventListener('keydown', onKeyDown) }
+    window.addEventListener('keydown', onKeyDown)
+    return () => { window.removeEventListener('keydown', onKeyDown) }
   }, [onClose])
 
-  // Entering the dialog focuses the close button; the root restores its trigger on close.
-  const closeButton = useRef<HTMLButtonElement | null>(null)
+  // Opening moves focus into the dialog; SettingsRoot restores its trigger on close.
   useEffect(() => { closeButton.current?.focus() }, [])
 
   return (
     <div className={css.overlay} role="presentation">
       <div className={css.mask} aria-hidden="true" onClick={onClose} />
-      <div className={css.panel} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <div ref={panelRef} className={css.panel} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <nav className={css.nav}>
           <div className={css.navTitle} id={titleId}>{renderSlot('settings.header', {})}</div>
           <div className={css.navList}>

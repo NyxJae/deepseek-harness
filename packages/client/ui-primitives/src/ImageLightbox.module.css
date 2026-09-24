@@ -4,12 +4,11 @@
   z-index: 1000;
   display: grid;
   place-items: center;
+  overflow: hidden;
   padding: 40px;
+  overscroll-behavior: contain;
 }
 
-/* Same mask recipe as the Modal primitive and the settings dialog. A separate
-   layer, not a background on .backdrop: backdrop-filter there would blur the
-   previewed image and the close control along with the page. */
 .mask {
   position: absolute;
   inset: 0;
@@ -17,22 +16,101 @@
   backdrop-filter: var(--dsw-mask-blur);
 }
 
+.imageStage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  max-height: calc(100dvh - 120px);
+}
+
 .image {
   position: relative;
   max-width: min(100%, 1600px);
-  max-height: calc(100vh - 80px);
+  max-height: calc(100vh - 120px);
+  max-height: calc(100dvh - 120px);
   object-fit: contain;
   border-radius: 12px;
   background: var(--dsw-specific-input-major);
-  border: 0;
   box-shadow: var(--dsw-elevation-prominent);
+  cursor: zoom-in;
+  user-select: none;
+  touch-action: none;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.image[data-zoomed] {
+  cursor: grab;
+}
+
+.image:active {
+  cursor: grabbing;
+}
+
+.controls {
+  position: fixed;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 4px;
+  border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: 8px;
+  background: var(--dsw-specific-input-major);
+  transform: translateX(-50%);
+}
+
+.control {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+}
+
+.control:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.control:focus-visible,
+.close:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 3px;
+}
+
+.minusIcon {
+  display: block;
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.zoomLevel {
+  min-width: 48px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 32px;
+  text-align: center;
+  user-select: none;
 }
 
 .close {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 1;
+  top: calc(20px + env(safe-area-inset-top, 0px));
+  right: calc(20px + env(safe-area-inset-right, 0px));
+  z-index: 2;
   display: grid;
   place-items: center;
   width: 36px;
@@ -45,4 +123,30 @@
   cursor: pointer;
 }
 
-.close:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 3px; }
+.close:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+@media (max-width: 600px) {
+  .backdrop {
+    padding: max(12px, env(safe-area-inset-top, 0px))
+      max(12px, env(safe-area-inset-right, 0px))
+      max(12px, env(safe-area-inset-bottom, 0px))
+      max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .imageStage,
+  .image {
+    max-height: calc(100vh - 104px);
+    max-height: calc(100dvh - 104px);
+  }
+
+  .controls {
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .close {
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    right: calc(12px + env(safe-area-inset-right, 0px));
+  }
+}

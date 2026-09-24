@@ -50,4 +50,8 @@ describe('computeColumns', () => {
     expect(computeColumns(755, 0, 0).rightbar).toBe(0)
     expect(computeColumns(1920, 0, 0).rightbar).toBe(0)
   })
+
+  it('omits the collapsed rail when the sidebar is drawn as a fixed overlay', () => {
+    expect(computeColumns(800, 0, 0, { sidebarTrack: 'none' })).toEqual({ sidebar: 0, center: 800, rightbar: 0 })
+  })
 })

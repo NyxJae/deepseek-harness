@@ -156,6 +156,7 @@
     "tests/tool-details.e2e.ts",
     "tests/turn-tail-actions.e2e.ts",
     "tests/goal-multi-turn-actions.e2e.ts",
+    "tests/goal-background.e2e.ts",
     "tests/chat-scroll-fixture.ts",
     "tests/chat-scroll-contract.e2e.ts",
     "tests/chat-long-interactions.e2e.ts",

@@ -6,7 +6,11 @@ import { MarkdownText } from './markdown-test-components.tsx'
 import { parseGfm, parseGfmWithMath } from '../src/markdown/parse.ts'
 
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks() })
-const labels = { open: 'View full image', dialog: 'Image preview', close: 'Close preview', loading: 'Loading image', failed: 'Image unavailable' }
+const labels = {
+  open: 'View full image', dialog: 'Image preview', close: 'Close preview',
+  zoomIn: 'Zoom in', zoomOut: 'Zoom out', resetZoom: 'Reset zoom',
+  loading: 'Loading image', failed: 'Image unavailable',
+}
 const fileImages = { resolve: (path: string) => `https://example.com/api/file?path=${encodeURIComponent('/workspace/' + path)}`, labels }
 function mount(text: string, streaming = false) {
   const openFile = vi.fn()
@@ -24,6 +28,8 @@ it('opens inline images in the shared lightbox, restores focus, and never opens 
   fireEvent.click(trigger)
   expect(screen.getByRole('dialog', { name: 'Image preview' })).toBeTruthy()
   fireEvent.keyDown(window, { key: 'Tab' })
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Zoom out' }))
+  fireEvent.keyDown(window, { key: 'Tab', shiftKey: true })
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close preview' }))
   fireEvent.click(screen.getByRole('button', { name: 'Close preview' }))
   expect(screen.queryByRole('dialog')).toBeNull()

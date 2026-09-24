@@ -537,6 +537,13 @@ async startContinuable(spec: ContinuableStartSpec): Promise<ContinuableStart>
 async sendMessage( sender: Agent, targetId: SessionId, content: ContentBlock[], options: SubagentSendMessageOptions, ): Promise<MessageId>
 
 /**
+ * Whether this exact Agent owns a live direct continuable child.
+ * @param parent - Agent whose direct child ownership is checked.
+ * @returns whether a live direct continuable child is owned by the supplied Agent.
+ */
+hasPendingContinuations(parent: Agent): boolean
+
+/**
  * Interrupt one live continuable child's current turn under a human parent
  * address or an exact live ancestor Agent. Fire-and-return: the cancel
  * signal is issued before this returns, but the target may keep running

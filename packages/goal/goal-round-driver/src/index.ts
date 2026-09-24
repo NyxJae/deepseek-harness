@@ -5,9 +5,12 @@
 
 import { isDeepStrictEqual } from 'node:util'
 import { FiberState } from '@deepseek-ai/cordis'
+import { carrierKeyOf } from '@deepseek-ai/dsh-scope'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { GoalMessageSource, GoalRef, GoalView } from '@deepseek-ai/dsh-goal'
+import type {} from '@deepseek-ai/dsh-jobs'
+import type {} from '@deepseek-ai/dsh-subagent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, MessageId, MessageSource } from '@deepseek-ai/dsh-llm'
 import type { Session, SessionEvent, UserMessage } from '@deepseek-ai/dsh-session'
@@ -99,13 +102,22 @@ export function apply(ctx: Context): void {
     return ctx.goals.get(state.agent)
   }
 
-  /** Whether this exact lifecycle is quiescent with no competing prompt. */
+  /** Whether this Agent still owns an active Job or a live direct child Activation. */
+  function hasOutstandingBackgroundWork(agent: Agent): boolean {
+    const jobs = ctx.get('jobs')
+    if (jobs?.list(agent.session.id).some(job => job.owner === agent.session.id
+      && (job.status === 'running' || job.status === 'stopping')) === true) return true
+    return ctx.get('subagents')?.hasPendingContinuations(agent) ?? false
+  }
+
+  /** Whether this exact lifecycle is quiescent with no competing prompt or owned background work. */
   function readyToDrive(state: DriverState): boolean {
     return ctx.fiber.state === FiberState.ACTIVE
       && !state.stopping
       && ctx.agents.get(state.agent.id) === state.agent
       && state.agent.status === 'idle'
       && !state.competingQueued
+      && !hasOutstandingBackgroundWork(state.agent)
   }
 
   /** Recheck every condition that an awaited checkpoint may have changed. */
@@ -240,9 +252,32 @@ export function apply(ctx: Context): void {
     })
   }
 
+  function requestForParent(this: object): void {
+    const parent = carrierKeyOf(this)
+    if (parent === undefined) return
+    for (const state of states.values()) {
+      if (state.agent !== parent || ctx.agents.get(state.agent.id) !== state.agent) continue
+      requestDrive(state)
+      return
+    }
+  }
+
   // One composite effect keeps the step fence installed until this
   // plugin's own scheduling tasks settle.
   ctx.effect(function* () {
+    ctx.inject(['jobs'], (jobsCtx) => {
+      const jobs = jobsCtx.get('jobs')
+      if (jobs === undefined) return
+      jobs.events.subscribe({ owners: 'scope' }, (event) => {
+        if (event.type !== 'settled' || event.job.owner === undefined) return
+        const agent = ctx.agents.get(event.job.owner)
+        if (agent === undefined) return
+        const state = states.get(agent)
+        if (state !== undefined) requestDrive(state)
+      })
+    })
+    ctx.on('subagent/start', requestForParent)
+    ctx.on('subagent/end', requestForParent)
     ctx.on('agent/error', ({ agent }) => {
       const state = stateFor(agent)
       disarm(state)
@@ -355,6 +390,7 @@ export function apply(ctx: Context): void {
       && goal !== undefined && goal.id === source.goalId && goal.revision === source.revision
       && goal.phase === 'active' && goal.activation === 'armed'
       && source.round === goal.roundsStarted + 1
+      && !hasOutstandingBackgroundWork(state.agent)
     }
 
     ctx.on('agent/pre-step', async ({ agent, messages, signal }, next): Promise<PreStepDecision> => {

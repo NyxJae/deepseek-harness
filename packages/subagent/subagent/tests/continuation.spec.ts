@@ -2142,6 +2142,28 @@ describe('continuable review regressions', () => {
     expect(before).toBeGreaterThan(0)
   })
 
+  it('reports resident direct continuable children for the exact parent Agent', async () => {
+    const release = Promise.withResolvers<undefined>()
+    const adapter = new GatedAdapter([{ chunks: textResponse('child output'), gate: release.promise }])
+    const { ctx, parent } = await setupWith(adapter)
+    const other = await ctx.agentLoop.create(SessionId('other-parent'), { provider: 'mock', model: 'mock' })
+    expect(ctx.subagents.hasPendingContinuations(parent)).toBe(false)
+
+    const started = await ctx.subagents.startContinuable(startSpec(parent))
+    try {
+      await vi.waitFor(() => { expect(adapter.requests).toHaveLength(1) })
+      expect(ctx.subagents.hasPendingContinuations(parent)).toBe(true)
+      expect(ctx.subagents.hasPendingContinuations(other)).toBe(false)
+      expect(ctx.subagents.hasPendingContinuations(new Proxy(parent, {}))).toBe(false)
+    } finally {
+      release.resolve(undefined)
+    }
+
+    await waitNoActivation(ctx, started.childId)
+    expect(ctx.subagents.hasPendingContinuations(parent)).toBe(false)
+    expect(await loadStoredSession(ctx.sessionPersistence, started.childId)).toBeDefined()
+  })
+
   it('reports this epoch\'s own output, captured while the child was still live', async () => {
     const { ctx, parent } = await setup([textResponse('first answer'), textResponse('second answer')])
     parkParent(ctx, parent)

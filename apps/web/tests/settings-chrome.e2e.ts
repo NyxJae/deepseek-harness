@@ -234,6 +234,83 @@ describe('web e2e: settings modal and General preferences', () => {
     expect(console.warnings).toEqual([])
   })
 
+  it('fits Settings into narrow viewports and contains keyboard focus', async () => {
+    const mobilePage = await browser.newPage({ viewport: { width: 320, height: 640 }, locale: ZH_BROWSER_LOCALE })
+    onTestFinished(() => mobilePage.close())
+    onTestFailed(() => saveFailureShot(mobilePage, 'web-e2e-settings-mobile'))
+    const console = watchConsole(mobilePage)
+    await mobilePage.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+    await mobilePage.locator('[data-sidebar-mobile]').waitFor({ timeout: 30_000 })
+    await mobilePage.locator('[data-sidebar-mobile-trigger]').click()
+    const opener = mobilePage.getByRole('button', { name: '设置', exact: true })
+    await opener.waitFor({ timeout: 10_000 })
+    await openSettings(mobilePage, 'zh')
+    const dialog = mobilePage.getByRole('dialog', { name: '设置', exact: true })
+    await dialog.waitFor({ timeout: 10_000 })
+    const navList = dialog.getByRole('navigation').locator('[class*="_navList"]')
+    const snapshot = await captureStableAria(mobilePage, '[role="dialog"]', scaffold.workspaceCwd, versionCapture)
+    await compareOrRefreshGolden(DIALOG_EXPECTED, snapshot, MODE)
+
+    for (const width of [320, 375, 430]) {
+      await mobilePage.setViewportSize({ width, height: 640 })
+      const box = await dialog.boundingBox()
+      if (box === null) throw new Error('Settings dialog has no layout box')
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.y).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width).toBeLessThanOrEqual(width)
+      expect(box.y + box.height).toBeLessThanOrEqual(640)
+      const nav = await navList.evaluate(element => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        clientHeight: element.clientHeight,
+        scrollHeight: element.scrollHeight,
+      }))
+      expect(nav.scrollWidth).toBeGreaterThan(nav.clientWidth)
+      expect(nav.scrollHeight).toBeLessThanOrEqual(nav.clientHeight)
+      if (process.env.DSH_VISUAL_EVIDENCE_DIR !== undefined) {
+        await mobilePage.screenshot({ path: join(process.env.DSH_VISUAL_EVIDENCE_DIR, `settings-${width}.png`) })
+      }
+    }
+    await navList.evaluate((element) => { element.scrollLeft = element.scrollWidth })
+    expect(await navList.evaluate(element => element.scrollLeft)).toBeGreaterThan(0)
+
+    const focusSelector = 'a[href], area[href], button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]'
+    const focusEdge = async (last: boolean): Promise<number> => dialog.evaluate((root, options) => {
+      const elements = Array.from(root.querySelectorAll<HTMLElement>(options.selector))
+        .filter((element) => {
+          if (element.tabIndex < 0 || element.closest('[hidden], [inert], [aria-hidden="true"]') !== null) return false
+          const style = window.getComputedStyle(element)
+          return style.display !== 'none' && style.visibility !== 'hidden'
+        })
+      const target = options.last ? elements.at(-1) : elements[0]
+      if (target === undefined) throw new Error('Settings dialog has no tab stop')
+      target.focus()
+      return elements.length
+    }, { selector: focusSelector, last })
+    const focusPosition = async (): Promise<{ count: number; index: number }> => dialog.evaluate((root, selector) => {
+      const elements = Array.from(root.querySelectorAll<HTMLElement>(selector))
+        .filter((element) => {
+          if (element.tabIndex < 0 || element.closest('[hidden], [inert], [aria-hidden="true"]') !== null) return false
+          const style = window.getComputedStyle(element)
+          return style.display !== 'none' && style.visibility !== 'hidden'
+        })
+      return { count: elements.length, index: elements.findIndex(element => element === document.activeElement) }
+    }, focusSelector)
+    const tabStopCount = await focusEdge(false)
+    expect(tabStopCount).toBeGreaterThan(1)
+    await mobilePage.keyboard.press('Shift+Tab')
+    const reverse = await focusPosition()
+    expect(reverse.index).toBe(reverse.count - 1)
+    await mobilePage.keyboard.press('Tab')
+    const forward = await focusPosition()
+    expect(forward.index).toBe(0)
+
+    await dialog.getByRole('button', { name: '关闭', exact: true }).click()
+    await expect.poll(() => opener.evaluate(element => element === document.activeElement), { timeout: 5_000 }).toBe(true)
+    expect(console.pageErrors).toEqual([])
+    expect(console.warnings).toEqual([])
+  }, 60_000)
+
   it('stores Permission as the default for future sessions without changing an existing session', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-settings-permission'))
     const existing = scaffold.ctx.sessions.create(SessionId('settings-permission-before'))
@@ -263,8 +340,17 @@ describe('web e2e: settings modal and General preferences', () => {
       ['approval/policy', { policy: 'ask' }],
     ])
 
-    await dialog.getByRole('button', { name: '仅可查看' }).click()
-    await page.getByRole('menuitem', { name: '完全权限' }).click()
+    const readOnly = dialog.getByRole('button', { name: '仅可查看' })
+    await readOnly.click()
+    const fullAccessMenuItem = page.getByRole('menuitem', { name: '完全权限' })
+    await fullAccessMenuItem.waitFor({ timeout: 10_000 })
+    await page.keyboard.press('Escape')
+    await fullAccessMenuItem.waitFor({ state: 'detached', timeout: 10_000 })
+    expect(await page.getByRole('dialog', { name: '设置', exact: true }).count()).toBe(1)
+    expect(await readOnly.evaluate(element => element === globalThis.document.activeElement)).toBe(true)
+    await readOnly.click()
+    await fullAccessMenuItem.waitFor({ timeout: 10_000 })
+    await fullAccessMenuItem.click()
     const confirmation = page.getByRole('dialog', { name: '确认启用完全权限？' })
     const enable = confirmation.getByRole('button', { name: '启用完全权限' })
     expect(await enable.isDisabled()).toBe(true)

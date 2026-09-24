@@ -10,6 +10,7 @@ import { createUserMessage, LlmAdapter, LlmError  } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
+import { scopeTarget } from '@deepseek-ai/dsh-scope'
 import type { UserMessage } from '@deepseek-ai/dsh-session'
 import * as goalSession from '../src/index.ts'
 
@@ -85,6 +86,67 @@ interface Harness {
   readonly driver: Awaited<ReturnType<Context['plugin']>>
 }
 
+interface BackgroundJobView {
+  readonly owner?: SessionId
+  readonly status: 'running' | 'stopping' | 'completed' | 'killed' | 'failed'
+}
+
+interface BackgroundJobEvent {
+  readonly type: 'settled'
+  readonly job: { readonly owner?: SessionId }
+}
+
+interface BackgroundServices {
+  readonly jobs?: {
+    list(owner: SessionId): BackgroundJobView[]
+    events: {
+      subscribe(
+        filter: { readonly owners: 'scope' },
+        listener: (event: BackgroundJobEvent) => void,
+      ): () => void
+    }
+  }
+  readonly jobsAfterDriver?: boolean
+  readonly subagents?: { hasPendingContinuations(parent: Agent): boolean }
+}
+
+interface BackgroundJobFixture {
+  readonly service: NonNullable<BackgroundServices['jobs']>
+  add(job: BackgroundJobView): void
+  settle(owner: SessionId): void
+}
+
+function backgroundJobFixture(): BackgroundJobFixture {
+  const records: BackgroundJobView[] = []
+  const listeners = new Set<(event: BackgroundJobEvent) => void>()
+  return {
+    service: {
+      list(owner) {
+        return records.filter(job => job.owner === owner || job.owner === undefined)
+      },
+      events: {
+        subscribe(_filter, listener) {
+          listeners.add(listener)
+          return () => { listeners.delete(listener) }
+        },
+      },
+    },
+    add(job) { records.push(job) },
+    settle(owner) {
+      const index = records.findIndex(job => job.owner === owner
+        && (job.status === 'running' || job.status === 'stopping'))
+      if (index < 0) throw new Error('no active test Job for the owner')
+      records[index] = { owner, status: 'completed' }
+      for (const listener of listeners) listener({ type: 'settled', job: { owner } })
+    },
+  }
+}
+
+function emitSubagentEnd(ctx: Context, subject: object, parent: Agent): void {
+  const args = [scopeTarget(subject, parent), 'subagent/end', {}]
+  for (const callback of ctx.events.dispatch('emit', args)) callback({})
+}
+
 const contexts: Context[] = []
 
 afterEach(async () => {
@@ -92,12 +154,20 @@ afterEach(async () => {
 })
 
 /** Mount a real loop with only its model scripted. */
-async function harness(script: ScriptEntry[]): Promise<Harness> {
+async function harness(script: ScriptEntry[], background?: BackgroundServices): Promise<Harness> {
   const ctx = new Context()
   contexts.push(ctx)
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(GoalService)
+  if (background?.jobsAfterDriver !== true && background?.jobs !== undefined) {
+    ctx.provide('jobs', background.jobs as never)
+  }
+  if (background?.subagents !== undefined) ctx.provide('subagents', background.subagents as never)
   const driver = await ctx.plugin(goalSession)
+  if (background?.jobsAfterDriver === true && background.jobs !== undefined) {
+    ctx.provide('jobs', background.jobs as never)
+    await Promise.resolve()
+  }
   await ctx.plugin(AgentLoop, { agents: [] })
   const adapter = new ScriptedAdapter(script)
   ctx.llm.registerAdapter(['mock'], adapter)
@@ -216,6 +286,85 @@ describe('same-session goal driving', () => {
     expect(requestText(test.adapter.requests[1]!)).toContain('Round: 2/2')
     expect(test.agent.session.snapshotEvents().flatMap(event =>
       event.type === 'request/header' ? [event.data.reason] : [])).toEqual(['initial', 'series'])
+  })
+
+  it('waits for an active owner Job and resumes when that Job settles', async () => {
+    const jobs = backgroundJobFixture()
+    const test = await harness([textResponse('after job')], { jobs: jobs.service, jobsAfterDriver: true })
+    const owner = test.agent.session.id
+    jobs.add({ owner, status: 'running' })
+    test.ctx.goals.create(test.agent, { objective: 'wait for owned work', maxGoalRounds: 1 })
+    await test.ctx.sessions.flush(test.agent.session)
+
+    expect(test.adapter.requests).toHaveLength(0)
+    expect(test.ctx.goals.get(test.agent)).toMatchObject({ roundsStarted: 0, activation: 'armed' })
+
+    jobs.settle(owner)
+    await waitForGoal(test.ctx, test.agent, goal => goal?.phase === 'blocked')
+    expect(test.adapter.requests).toHaveLength(1)
+  })
+
+  it('ignores other-owner, unowned, and terminal Jobs', async () => {
+    const jobs = backgroundJobFixture()
+    const test = await harness([textResponse('no active owned work')], { jobs: jobs.service })
+    jobs.add({ owner: SessionId('other-owner'), status: 'running' })
+    jobs.add({ owner: test.agent.session.id, status: 'completed' })
+    jobs.add({ status: 'running' })
+    test.ctx.goals.create(test.agent, { objective: 'ignore unrelated work', maxGoalRounds: 1 })
+
+    await waitForGoal(test.ctx, test.agent, goal => goal?.phase === 'blocked')
+    expect(test.adapter.requests).toHaveLength(1)
+  })
+
+  it('waits for an exact parent continuable child and wakes on its end event', async () => {
+    const parent: { agent?: Agent } = {}
+    let pending = true
+    const subagents = {
+      hasPendingContinuations(candidate: Agent) {
+        return pending && candidate === parent.agent
+      },
+    }
+    const test = await harness([textResponse('after child')], { subagents })
+    parent.agent = test.agent
+    test.ctx.goals.create(test.agent, { objective: 'wait for child work', maxGoalRounds: 1 })
+    await test.ctx.sessions.flush(test.agent.session)
+
+    expect(test.adapter.requests).toHaveLength(0)
+    pending = false
+    emitSubagentEnd(test.ctx, subagents, test.agent)
+    await waitForGoal(test.ctx, test.agent, goal => goal?.phase === 'blocked')
+    expect(test.adapter.requests).toHaveLength(1)
+  })
+
+  it('rechecks owner Jobs after downstream pre-step hooks await', async () => {
+    const jobs = backgroundJobFixture()
+    const test = await harness([textResponse('after pre-step Job')], { jobs: jobs.service })
+    const entered = Promise.withResolvers<undefined>()
+    const release = Promise.withResolvers<undefined>()
+    let hold = true
+    test.ctx.on('agent/pre-step', async ({ messages }, next) => {
+      if (!hold || !messages.some(message => message.source.kind === 'goal' && message.source.round === 1)) {
+        return next()
+      }
+      const decision = await next()
+      entered.resolve(undefined)
+      await release.promise
+      hold = false
+      return decision
+    })
+    test.ctx.goals.create(test.agent, { objective: 'recheck after async pre-step', maxGoalRounds: 1 })
+    await entered.promise
+    jobs.add({ owner: test.agent.session.id, status: 'running' })
+    release.resolve(undefined)
+    await test.agent.whenIdle()
+    await test.ctx.sessions.flush(test.agent.session)
+
+    expect(test.adapter.requests).toHaveLength(0)
+    expect(test.ctx.goals.get(test.agent)?.roundsStarted).toBe(0)
+
+    jobs.settle(test.agent.session.id)
+    await waitForGoal(test.ctx, test.agent, goal => goal?.phase === 'blocked')
+    expect(test.adapter.requests).toHaveLength(1)
   })
 
   it('never adopts activation from an already-live driver and waits for explicit resume', async () => {

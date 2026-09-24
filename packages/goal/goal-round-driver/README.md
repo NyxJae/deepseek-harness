@@ -46,7 +46,7 @@ Mount the driver beside the goal service and the goal tools; the driver itself t
 
 ### What each round does
 
-With an exact live agent idle, an active armed goal, and remaining capacity, the driver queues one goal-round prompt. It names the JSON-quoted objective, round number, and cap, and tells the model to use current workspace, tool results, and durable state as authority. An accepted round starts a distinct request series, so Chat renders its self-contained request header before the goal message. The round enters history as a goal-sourced user message; only an entered goal message consumes the cap, while human messages and stale reservations do not. Goal lifecycle mutations still require the independent authority checks in `dsh-tool-goal`.
+With an exact live agent idle, an active armed goal, and remaining capacity, the driver queues one goal-round prompt. It names the JSON-quoted objective, round number, and cap, and tells the model to use current workspace, tool results, and durable state as authority. An accepted round starts a distinct request series, so Chat renders its self-contained request header before the goal message. The round enters history as a goal-sourced user message; only an entered goal message consumes the cap, while human messages and stale reservations do not. Goal lifecycle mutations still require the independent authority checks in `dsh-tool-goal`. An active Job owned by this Agent or a resident direct continuable child keeps the next round waiting; Job settlement and child Activation end wake the driver. Terminal Jobs, foreground one-shot runs, cold child Sessions, and other Agents' work do not hold this goal; a background one-shot run registered as an owned Job does.
 
 ### When continuation stops
 

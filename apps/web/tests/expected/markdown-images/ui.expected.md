@@ -20,6 +20,9 @@
   - 'button "View full image: Workspace test image"':
     - img "Workspace test image"
 - paragraph:
+  - 'button "View full image: Drive slash absolute image"':
+    - img "Drive slash absolute image"
+- paragraph:
   - button "View comparison"
 - paragraph:
   - 'button "View full image: Space path"':

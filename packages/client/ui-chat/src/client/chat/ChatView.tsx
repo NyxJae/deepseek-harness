@@ -126,6 +126,7 @@ export function ChatView({
     labels: {
       open: t('image.open'), loading: t('image.loading'), failed: t('image.failed'),
       dialog: t('image.dialog'), close: t('image.close'),
+      zoomIn: t('image.zoomIn'), zoomOut: t('image.zoomOut'), resetZoom: t('image.resetZoom'),
     },
   }), [cwd, t])
   const running = useSession(s => s.running)

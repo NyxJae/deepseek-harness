@@ -10,15 +10,19 @@
 // provider.
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { basename, join } from 'node:path'
 import { chromium } from 'playwright'
 import type { Browser, Page } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
-import { launchWebScaffold, seedSession, watchConsole, type WebScaffold } from './scaffold.ts'
+import { captureStableAria, compareOrRefreshGolden, launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
 const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.v3.jsonl', import.meta.url))
 /** Wider than the sidebar cell, under the 80-byte title limit, with a far-edge suffix the marquee must reach. */
 const TITLE = 'Forked session clipped before its suffix (1)'
+const MOBILE_EXPECTED = fileURLToPath(new URL('./expected/sidebar-mobile.expected.md', import.meta.url))
+const HEADER_EXPECTED = fileURLToPath(new URL('./expected/header-corner-scroll.expected.md', import.meta.url))
+const MODE = webSnapshotMode()
 
 describe('web e2e: hovering a clipped session title marquees it to its far edge', () => {
   let scaffold: WebScaffold
@@ -104,6 +108,99 @@ describe('web e2e: hovering a clipped session title marquees it to its far edge'
     ).toBe(true)
     await page.mouse.move(0, 0)
     await page.emulateMedia({ reducedMotion: null })
+    expect(tripwire.pageErrors).toEqual([])
+  }, 90_000)
+
+  it('keeps the narrow sidebar in a zero-track overlay', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-sidebar-mobile-overlay'))
+    await page.setViewportSize({ width: 800, height: 900 })
+    const frame = page.locator('[data-sidebar-mobile]')
+    await frame.waitFor({ timeout: 20_000 })
+    const firstTrack = async (): Promise<string> => frame.evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ')[0] ?? '')
+    await expect.poll(firstTrack).toBe('0px')
+
+    const trigger = page.getByRole('button', { name: 'Open sidebar', exact: true })
+    await trigger.waitFor({ timeout: 20_000 })
+    await page.mouse.move(780, 800)
+    await page.getByRole('tooltip').waitFor({ state: 'detached', timeout: 5_000 })
+    if (process.env.DSH_VISUAL_EVIDENCE_DIR !== undefined) {
+      await page.screenshot({ path: join(process.env.DSH_VISUAL_EVIDENCE_DIR, 'sidebar-800-closed.png') })
+    }
+    await trigger.click()
+    const drawer = page.locator('[data-sidebar-mobile-root]')
+    await drawer.waitFor({ timeout: 10_000 })
+    expect(await firstTrack()).toBe('0px')
+    expect(await page.getByRole('button', { name: 'New session', exact: true }).count()).toBe(1)
+    await page.mouse.move(780, 800)
+    await page.getByRole('tooltip').waitFor({ state: 'detached', timeout: 5_000 })
+    if (process.env.DSH_VISUAL_EVIDENCE_DIR !== undefined) {
+      await page.screenshot({ path: join(process.env.DSH_VISUAL_EVIDENCE_DIR, 'sidebar-800-open.png') })
+    }
+    const snapshot = await captureStableAria(page, '[data-sidebar-mobile-root]', scaffold.workspaceCwd, {
+      normalizeAge: true,
+      replacements: [[basename(scaffold.workspaceCwd), '{{workspace}}']],
+    })
+    await compareOrRefreshGolden(MOBILE_EXPECTED, snapshot, MODE)
+
+    await page.keyboard.press('Escape')
+    await drawer.waitFor({ state: 'detached', timeout: 10_000 })
+    await trigger.waitFor({ state: 'visible' })
+    await trigger.click()
+    await drawer.waitFor({ timeout: 10_000 })
+    await page.locator('[data-sidebar-brand-collapse]').click()
+    await drawer.waitFor({ state: 'detached', timeout: 10_000 })
+    await trigger.waitFor({ state: 'visible' })
+    expect(await firstTrack()).toBe('0px')
+    await page.setViewportSize({ width: 1280, height: 900 })
+    expect(tripwire.pageErrors).toEqual([])
+  }, 90_000)
+
+  it('keeps the header corner fixed while title controls scroll', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-header-corner-scroll'))
+    await page.locator('[data-sidebar-mobile]').waitFor({ state: 'detached', timeout: 10_000 })
+    const openSidebar = page.getByRole('button', { name: 'Open sidebar', exact: true })
+    if (await openSidebar.isVisible()) await openSidebar.click()
+    await page.getByRole('treeitem').filter({ has: page.getByText(TITLE, { exact: true }) }).click()
+    await page.locator('[data-conversation-header-scroller]').getByText(TITLE, { exact: true }).waitFor()
+    await page.setViewportSize({ width: 360, height: 900 })
+    await page.locator('[data-sidebar-mobile-trigger]').waitFor({ timeout: 10_000 })
+    await expect.poll(() => page.locator('[class*="centerCol"]').first().evaluate(element => element.getBoundingClientRect().width), { timeout: 10_000 }).toBeGreaterThan(300)
+    const row = page.locator('[data-conversation-header-row]')
+    const corner = page.locator('[data-conversation-header-corner]')
+    const cornerButton = corner.getByRole('button', { name: 'Open right sidebar', exact: true })
+    await row.waitFor({ timeout: 20_000 })
+    await cornerButton.waitFor({ timeout: 20_000 })
+
+    const scrollWidths = async (): Promise<number> => page.evaluate(() => {
+      const element = document.querySelector<HTMLDivElement>('[data-conversation-header-scroller]')
+      if (element === null) throw new Error('conversation title scroller was not rendered')
+      return element.scrollWidth - element.clientWidth
+    })
+    await expect.poll(scrollWidths, { timeout: 10_000 }).toBeGreaterThan(0)
+    await page.locator('[data-conversation-header-scroller]').evaluate((element) => { element.scrollLeft = 0 })
+    expect(await page.locator('[data-conversation-header-scroller]').evaluate(element => element.scrollLeft)).toBe(0)
+    const before = await cornerButton.boundingBox()
+    if (before === null) throw new Error('right sidebar control has no layout box')
+    if (process.env.DSH_VISUAL_EVIDENCE_DIR !== undefined) {
+      await page.screenshot({ path: join(process.env.DSH_VISUAL_EVIDENCE_DIR, 'header-360-before.png') })
+    }
+    const snapshot = await captureStableAria(page, '[data-conversation-header-row]', scaffold.workspaceCwd, { normalizeAge: true })
+    await compareOrRefreshGolden(HEADER_EXPECTED, snapshot, MODE)
+
+    await page.evaluate(() => {
+      const element = document.querySelector<HTMLDivElement>('[data-conversation-header-scroller]')
+      if (element === null) throw new Error('conversation title scroller was not rendered')
+      element.scrollLeft = element.scrollWidth
+    })
+    expect(await page.evaluate(() => document.querySelector<HTMLDivElement>('[data-conversation-header-scroller]')?.scrollLeft ?? 0)).toBeGreaterThan(0)
+    const after = await cornerButton.boundingBox()
+    if (after === null) throw new Error('right sidebar control left the viewport')
+    expect(after.x).toBe(before.x)
+    expect(after.y).toBe(before.y)
+    if (process.env.DSH_VISUAL_EVIDENCE_DIR !== undefined) {
+      await page.screenshot({ path: join(process.env.DSH_VISUAL_EVIDENCE_DIR, 'header-360-after.png') })
+    }
+    await page.setViewportSize({ width: 1280, height: 900 })
     expect(tripwire.pageErrors).toEqual([])
   }, 90_000)
 })

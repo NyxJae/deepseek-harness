@@ -234,6 +234,18 @@ export class ContinuableActivationRegistry {
   }
 
   /**
+   * Whether this exact Agent owns a resident direct continuable child.
+   * @param parent - exact live Agent whose direct children are checked.
+   * @returns whether a direct child Activation is resident.
+   */
+  hasPending(parent: Agent): boolean {
+    for (const activation of this.resident.values()) {
+      if (activation.parentSession === parent.id && activation.ancestry.has(parent)) return true
+    }
+    return false
+  }
+
+  /**
    * Reject one child identity already owned by a live Agent or Session.
    * @param childId - proposed durable child session id.
    */
