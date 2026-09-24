@@ -1,0 +1,7 @@
+- dialog "Original image preview":
+  - img "reference-1.png"
+  - button "Zoom out on original image"
+  - text: 125%
+  - button "Zoom in on original image"
+  - button "Reset original image zoom"
+  - button "Close original image preview"

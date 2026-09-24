@@ -311,6 +311,50 @@ describe('web e2e: settings modal and General preferences', () => {
     expect(console.warnings).toEqual([])
   }, 60_000)
 
+  it('lets nested overlays consume Escape before the mobile drawer', async () => {
+    const mobilePage = await browser.newPage({ viewport: { width: 375, height: 720 }, locale: ZH_BROWSER_LOCALE })
+    onTestFinished(() => mobilePage.close())
+    onTestFailed(() => saveFailureShot(mobilePage, 'web-e2e-mobile-overlay-escape'))
+    const trace = watchConsole(mobilePage)
+    await mobilePage.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+    const trigger = mobilePage.locator('[data-sidebar-mobile-trigger]')
+    await trigger.waitFor({ timeout: 30_000 })
+    await trigger.click()
+    const drawer = mobilePage.locator('[data-sidebar-mobile-root]')
+    await drawer.waitFor({ timeout: 10_000 })
+    const settingsTrigger = drawer.getByRole('button', { name: '设置', exact: true })
+    await settingsTrigger.click()
+    const dialog = mobilePage.getByRole('dialog', { name: '设置', exact: true })
+    await dialog.waitFor({ timeout: 10_000 })
+    if (process.env.DSH_VISUAL_EVIDENCE_DIR !== undefined) {
+      await mobilePage.screenshot({ path: join(process.env.DSH_VISUAL_EVIDENCE_DIR, 'mobile-settings-overlay-before.png') })
+    }
+    await mobilePage.keyboard.press('Escape')
+    await dialog.waitFor({ state: 'detached', timeout: 10_000 })
+    expect(await drawer.isVisible()).toBe(true)
+    if (process.env.DSH_VISUAL_EVIDENCE_DIR !== undefined) {
+      await mobilePage.screenshot({ path: join(process.env.DSH_VISUAL_EVIDENCE_DIR, 'mobile-settings-overlay-after.png') })
+    }
+
+    await settingsTrigger.click()
+    await dialog.waitFor({ timeout: 10_000 })
+    await dialog.getByRole('button', { name: '工作区内修改' }).click()
+    const menu = mobilePage.getByRole('menu')
+    await menu.waitFor({ timeout: 10_000 })
+    await mobilePage.keyboard.press('Escape')
+    await menu.waitFor({ state: 'detached', timeout: 10_000 })
+    expect(await dialog.isVisible()).toBe(true)
+    expect(await drawer.isVisible()).toBe(true)
+    await mobilePage.keyboard.press('Escape')
+    await dialog.waitFor({ state: 'detached', timeout: 10_000 })
+    expect(await drawer.isVisible()).toBe(true)
+    await mobilePage.keyboard.press('Escape')
+    await drawer.waitFor({ state: 'detached', timeout: 10_000 })
+    await trigger.waitFor({ state: 'visible', timeout: 10_000 })
+    await expect.poll(() => trigger.evaluate(element => element === document.activeElement), { timeout: 5_000 }).toBe(true)
+    expect(trace.pageErrors).toEqual([])
+  }, 60_000)
+
   it('stores Permission as the default for future sessions without changing an existing session', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-settings-permission'))
     const existing = scaffold.ctx.sessions.create(SessionId('settings-permission-before'))

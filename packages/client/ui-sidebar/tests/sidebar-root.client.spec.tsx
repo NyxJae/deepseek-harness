@@ -135,17 +135,30 @@ describe('SidebarRoot shell', () => {
     expect(document.querySelector('[data-sidebar-mobile-root]')).toBeNull()
   })
 
-  it('closes the mobile drawer on Escape unless another control consumed it', () => {
+  it('closes the mobile drawer after an unconsumed Escape propagates', async () => {
     const b = mountShell({ mobile: true })
     const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
     document.dispatchEvent(escape)
-    expect(escape.defaultPrevented).toBe(true)
+    expect(escape.defaultPrevented).toBe(false)
+    expect(b.toggleSidebar).not.toHaveBeenCalled()
+    await new Promise<void>((resolve) => { window.setTimeout(resolve, 0) })
     expect(b.toggleSidebar).toHaveBeenCalledOnce()
 
     const consumed = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
     consumed.preventDefault()
     document.dispatchEvent(consumed)
+    await new Promise<void>((resolve) => { window.setTimeout(resolve, 0) })
     expect(b.toggleSidebar).toHaveBeenCalledOnce()
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await new Promise<void>((resolve) => { window.setTimeout(resolve, 0) })
+    expect(b.toggleSidebar).toHaveBeenCalledTimes(2)
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    cleanup()
+    await new Promise<void>((resolve) => { window.setTimeout(resolve, 0) })
+    expect(b.toggleSidebar).toHaveBeenCalledTimes(2)
   })
 
   it('renders generic brand fallbacks when no package fills the slots', () => {

@@ -195,13 +195,21 @@ export function SidebarRoot({
   }, [mobile, mobileClosed])
   useEffect(() => {
     if (!mobile || collapsed) return
+    // Document microtasks may run before window Escape listeners.
+    let pending: number | undefined
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape' || event.defaultPrevented) return
-      event.preventDefault()
-      toggleSidebar()
+      if (event.key !== 'Escape') return
+      if (pending !== undefined) window.clearTimeout(pending)
+      pending = window.setTimeout(() => {
+        pending = undefined
+        if (!event.defaultPrevented) toggleSidebar()
+      }, 0)
     }
     document.addEventListener('keydown', onKeyDown)
-    return () => { document.removeEventListener('keydown', onKeyDown) }
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      if (pending !== undefined) window.clearTimeout(pending)
+    }
   }, [mobile, collapsed, toggleSidebar])
 
   const buildVersion = localBuildVersion()

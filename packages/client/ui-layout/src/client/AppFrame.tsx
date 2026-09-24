@@ -20,8 +20,7 @@ import type { ReactNode } from 'react'
 import type {
   PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore,
 } from '@deepseek-ai/dsh-client-ui-slots'
-import { CENTER_MIN, clampWidth, computeColumns, RIGHTBAR_DEFAULT_RATIO, RIGHTBAR_MAX_RATIO, RIGHTBAR_MIN, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT } from './columns.ts'
-import type { ColumnOptions } from './columns.ts'
+import { CENTER_MIN, clampWidth, computeColumns, RIGHTBAR_DEFAULT_RATIO, RIGHTBAR_MAX_RATIO, RIGHTBAR_MIN, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_COLLAPSED, SIDEBAR_DEFAULT } from './columns.ts'
 import { DocumentTitle } from './DocumentTitle.tsx'
 import type { createLayoutStore } from './stores.ts'
 import css from './AppFrame.module.css'
@@ -187,14 +186,12 @@ export function AppFrame({
   // the Windows caption row; neither platform keeps an icon rail.
   const darwin = document.documentElement.dataset.platform === 'darwin'
   const windowsTitlebar = document.documentElement.hasAttribute('data-windows-titlebar')
-  const columnOptions: ColumnOptions = {
-    sidebarTrack: narrow || darwin || windowsTitlebar ? 'none' : 'rail',
-  }
+  const collapsedWidth = narrow || darwin || windowsTitlebar ? 0 : SIDEBAR_COLLAPSED
   const gridSidebar = narrow ? 0 : sidebarPreference
   // Right-panel eligibility uses the expanded left preference only when that
   // panel is already open; the rendered narrow layout always uses a zero track.
-  const normal = computeColumns(viewport, !layoutInfo.rightbarShown && narrow ? 0 : sidebarPreference, rightbarPreference, columnOptions)
-  const cols = computeColumns(viewport, gridSidebar, layoutInfo.rightbarTrack ? rightbarPreference : 0, columnOptions)
+  const normal = computeColumns(viewport, !layoutInfo.rightbarShown && narrow ? 0 : sidebarPreference, rightbarPreference, collapsedWidth)
+  const cols = computeColumns(viewport, gridSidebar, layoutInfo.rightbarTrack ? rightbarPreference : 0, collapsedWidth)
   const colsRef = useRef(cols)
   colsRef.current = cols
   const rightbarWidth = useRef(normal.rightbar)
